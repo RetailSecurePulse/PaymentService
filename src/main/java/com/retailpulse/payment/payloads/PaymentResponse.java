@@ -11,4 +11,6 @@ import lombok.NoArgsConstructor;
 public class PaymentResponse {
     @JsonProperty("clientSecret")
     String clientSecret;
+    @JsonProperty("paymentIntentId")
+    String paymentIntentId;
 }
