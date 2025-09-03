@@ -27,6 +27,8 @@ public class Payment {
     private Long id;
     @Column(name = "transaction_id", nullable = false)
     private String transactionId;
+    @Column(name = "payment_intent_id", nullable = false)
+    private String paymentIntentId;
     @Column(name = "description")
     private String description;
     @Column(name = "total_price", nullable = false)
@@ -35,6 +37,9 @@ public class Payment {
     private String currency;
     @Column(name = "customer_email")
     private String customerEmail;
+    @Column(name = "payment_status", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private PaymentStatus paymentStatus;
 
     @CreatedDate
     @Column(name = "created_date", nullable = false)
