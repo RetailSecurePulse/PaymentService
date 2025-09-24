@@ -7,7 +7,7 @@ plugins {
 }
 
 group = 'com.retailpulse'
-version = '0.0.1-SNAPSHOT'
+version = '0.0.1'
 description = 'Payment project for Retails'
 
 java {
