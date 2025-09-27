@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-mysql-payment
+  namespace: ns-retailpulse
+type: Opaque
+stringData:
+  MYSQL_ROOT_PASSWORD: password
+  MYSQL_DATABASE: RPPaymentDB
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-payment-pvc
+  namespace: ns-retailpulse
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-rp-payment
+  namespace: ns-retailpulse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-rp-payment
+  template:
+    metadata:
+      labels:
+        app: mysql-rp-payment
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:latest
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: secret-mysql-payment
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: secret-mysql-payment
+                  key: MYSQL_DATABASE
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+            # - name: init-sql-file
+            #   mountPath: /docker-entrypoint-initdb.d
+          livenessProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "localhost"]
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          readinessProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "localhost"]
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+      volumes:
+        - name: mysql-data
+          persistentVolumeClaim:
+            claimName: mysql-payment-pvc
+        # - name: init-sql-file
+        #   configMap:
+        #     name: cm-mysql-payment-init
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-rp-payment 
+  namespace: ns-retailpulse
+spec:
+  selector:
+    app: mysql-rp-payment
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306
+      nodePort: 30310
+  type: NodePort

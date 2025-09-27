@@ -1,0 +1,53 @@
+services:
+  mysql-rp-payment:
+    image: mysql:latest
+    container_name: mysql-rp-payment
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: RPPaymentDB
+    ports:
+      - "30310:3306"
+    volumes:
+      - ./deploy/payment.init.sql:/docker-entrypoint-initdb.d/init.sql
+      - mysql_payment_vol:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 30s
+      retries: 5
+      start_period: 10s
+      timeout: 10s
+    networks:
+      - retailpulse-network
+
+  # app-rp-payment:
+  #   image: rp-payment-app:v0.1.0
+  #   container_name: app-rp-payment
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   environment:
+  #     SPRING_DATASOURCE_URL: jdbc:mysql://mysql-rp-payment:3306/RPpaymentDB 
+  #     SPRING_DATASOURCE_USERNAME: root
+  #     SPRING_DATASOURCE_PASSWORD: password
+  #     JPA_HIBERNATE_DDL_AUTO: update
+  #     INVENTORY_SERVICE_URL: http://app-rp-inventory:8084
+  #     SERVER_PORT: 8087
+  #     AUTH_SERVER_URL: http://app-iam:8081
+  #   ports:
+  #     - "8087:8087"
+  #   depends_on:
+  #     mysql-rp-payment:
+  #       condition: service_healthy
+  #     # app-iam:
+  #     #   condition: service_started
+  #   networks:
+  #     - retailpulse-network
+
+networks:
+  retailpulse-network:
+    driver: bridge
+    external: true
+
+volumes:
+  mysql_payment_vol:
