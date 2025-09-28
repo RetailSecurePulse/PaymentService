@@ -27,6 +27,12 @@
                 <message>message</message>
             </fieldNames>
 
+            <!-- map MDC fields for tracing -->
+            <mdcFields>
+                <mdcField>traceId</mdcField>
+                <mdcField>spanId</mdcField>
+            </mdcFields>
+
             <!-- add fixed tags -->
             <customFields>{"service.name":"${appName}","service.environment":"${env}"}</customFields>
         </encoder>

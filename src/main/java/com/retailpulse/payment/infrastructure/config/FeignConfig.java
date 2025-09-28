@@ -1,7 +1,8 @@
-package com.retailpulse.payment.config;
+package com.retailpulse.payment.infrastructure.config;
 
 import feign.Logger;
 import feign.RequestInterceptor;
+import io.micrometer.tracing.Tracer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpHeaders;
@@ -14,6 +15,13 @@ import org.springframework.web.context.request.RequestContextHolder;
 
 @Slf4j
 public class FeignConfig {
+
+    private final Tracer tracer;
+
+    public FeignConfig(Tracer tracer) {
+        this.tracer = tracer;
+    }
+
     @Bean
     Logger.Level feignLoggerLevel() {
         return Logger.Level.FULL;
@@ -22,6 +30,12 @@ public class FeignConfig {
     @Bean
     public RequestInterceptor oauth2BearerForwardingInterceptor() {
         return template -> {
+
+            if (tracer.currentSpan() != null) {
+                template.header("X-B3-TraceId", tracer.currentSpan().context().traceId());
+                template.header("X-B3-SpanId", tracer.currentSpan().context().spanId());
+            }
+
             String token = extractBearerToken();
             if (token != null && !token.isEmpty()) {
                 template.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
