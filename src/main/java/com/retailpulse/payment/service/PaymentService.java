@@ -60,7 +60,16 @@ public class PaymentService {
         payment.setPaymentStatus(PaymentStatus.PROCESSING);
         payment.setCustomerEmail(data.getCustomerEmail());
         paymentRepo.save(payment);
-        return new PaymentResponse(paymentIntent.getClientSecret(), paymentIntent.getId());
+        return new PaymentResponse(
+                paymentIntent.getClientSecret(),
+                paymentIntent.getId(),
+                payment.getId(),
+                payment.getTransactionId(),
+                (payment.getTotalPrice() / 100.0),
+                payment.getCurrency(),
+                payment.getPaymentStatus(),
+                payment.getCreatedDate()
+        );
     }
 
     @Transactional
