@@ -46,3 +46,5 @@ EXPOSE 8085
 
 # Run the Spring Boot application
 ENTRYPOINT ["java", "-jar", "app.jar"]
+
+LABEL authors="aungtuntun"
