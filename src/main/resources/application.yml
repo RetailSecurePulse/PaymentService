@@ -1,0 +1,47 @@
+spring:
+ application:
+  name: Payment
+
+ datasource:
+  url: jdbc:mysql://localhost:3306/PaymentService?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false&useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci&characterSetResults=UTF-8
+  username: root
+  password: admin@123
+
+  # HikariCP Configuration
+  hikari:
+   minimum-idle: 5
+   maximum-pool-size: 20
+   auto-commit: true
+   idle-timeout: 30000
+   max-lifetime: 1800000
+   connection-timeout: 30000
+ #spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+
+ # Hibernate ddl auto (none, create, create-drop, validate, update)
+ #spring.jpa.database-platform=org.hibernate.dialect.MySQL5InnoDBDialect
+ #spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQL5InnoDBDialect
+ jpa:
+  show-sql: true
+  hibernate:
+   ddl-auto: update
+   # for Capital letter in database
+   naming:
+    physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+  properties:
+   jdbc:
+    time_zone: UTC
+
+ # Temp disabled
+ docker:
+  compose:
+   enabled: false
+ #server.servlet.context-path=/
+
+ security:
+  user:
+   name: admin
+   password: admin
+server:
+ port: 8080
+
+
