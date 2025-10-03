@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
@@ -28,7 +29,6 @@ public class PaymentConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         if (authEnabled) {
-            System.out.println("Auth enabled");
             http.oauth2ResourceServer(
                     c -> c.jwt(
                             j -> j.jwkSetUri(keySetUri).jwtAuthenticationConverter(jwtAuthenticationConverter())
@@ -36,23 +36,20 @@ public class PaymentConfig {
             );
 
             http
-                    .csrf(csrf -> csrf.disable())
+                    .csrf(AbstractHttpConfigurer::disable)
                     .authorizeHttpRequests(
-                    c -> c.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                            .requestMatchers("/api/**").authenticated() //.hasRole("SUPER").anyRequest().authenticated()
-            );
+                            c -> c.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                                    .requestMatchers("/api/**").authenticated() //.hasRole("SUPER").anyRequest().authenticated()
+                    );
         } else {
-            System.out.println("No auth enabled");
             http
-                    .csrf(csrf -> csrf.disable())
+                    .csrf(AbstractHttpConfigurer::disable)
                     .authorizeHttpRequests(
-                    c -> c.anyRequest().permitAll()
-            );
+                            c -> c.anyRequest().permitAll()
+                    );
         }
 
-        http.cors(c -> {
-            c.configurationSource(corsConfigurationSource());
-        });
+        http.cors(c -> c.configurationSource(corsConfigurationSource()));
 
         return http.build();
     }
