@@ -1,47 +1,62 @@
-spring:
- application:
-  name: Payment
-
- datasource:
-  url: jdbc:mysql://localhost:3306/PaymentService?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false&useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci&characterSetResults=UTF-8
-  username: root
-  password: admin@123
-
-  # HikariCP Configuration
-  hikari:
-   minimum-idle: 5
-   maximum-pool-size: 20
-   auto-commit: true
-   idle-timeout: 30000
-   max-lifetime: 1800000
-   connection-timeout: 30000
- #spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
-
- # Hibernate ddl auto (none, create, create-drop, validate, update)
- #spring.jpa.database-platform=org.hibernate.dialect.MySQL5InnoDBDialect
- #spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQL5InnoDBDialect
- jpa:
-  show-sql: true
-  hibernate:
-   ddl-auto: update
-   # for Capital letter in database
-   naming:
-    physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
-  properties:
-   jdbc:
-    time_zone: UTC
-
- # Temp disabled
- docker:
-  compose:
-   enabled: false
- #server.servlet.context-path=/
-
- security:
-  user:
-   name: admin
-   password: admin
 server:
- port: 8080
+  port: 8087
 
+auth:
+  enabled: false
+  origin: "http://localhost:4200"
+  jwt.key.set.uri: http://localhost:30081/oauth2/jwks
 
+sales-service:
+  url: http://localhost:30085
+
+stripe:
+  apiKey: ${STRIPE_API_KEY:sk_test_51SBx0NH1LGmpXQLTMttHXOrB9QNPYnWRT5bIzS5W33eDJsX836XTfHKSkwmXFNd4Crnbqwh6XKm8Lu0yoeqdSPBt00evCK3s0C}    # recommended: override with env var
+  webhookSecret: ${STRIPE_WEBHOOK_SECRET:whsec_a4f1e7714e26b32a81c5fdf030687e926f18b2ef7b73df35b76ec12731efd43a}
+
+spring:
+  application:
+    name: Payment
+
+  datasource:
+    url: jdbc:mysql://localhost:30310/RPPaymentDB #3300
+    username: root
+    password: password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    datasource: 
+      hikari: # HikariCP Configuration
+        minimum-idle: 5
+        maximum-pool-size: 20
+        auto-commit: true
+        idle-timeout: 30000
+        max-lifetime: 1800000
+        connection-timeout: 30000
+
+  docker:
+    compose:
+      enabled: false
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    show-sql: true
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  security:
+    user:
+      name: admin
+      password: admin
+
+logging:
+  level:
+    root: INFO
+    org:
+      springframework:
+        security: TRACE
+    com.retailpulse: DEBUG
+  file:
+    name: logs/rp-sales.log

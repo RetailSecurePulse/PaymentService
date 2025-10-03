@@ -27,9 +27,10 @@ import static com.retailpulse.payment.model.Constants.*;
 @RequiredArgsConstructor
 public class PaymentService {
 
-    @Value("${stripe.secret-key}")
+    @Value("${stripe.apiKey}")
     private String stripeSecretKey;
-    @Value("${stripe.webhook-endpoint-key}")
+
+    @Value("${stripe.webhookSecret}")
     private String webhookEndpointKey;
 
     private static final Logger logger = LoggerFactory.getLogger(PaymentService.class);

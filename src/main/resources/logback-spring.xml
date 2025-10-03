@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true">
+
+    <!-- Read useful envs if present -->
+    <springProperty scope="context" name="appName" source="spring.application.name" defaultValue="rp-payment-service"/>
+    <springProperty scope="context" name="env"     source="spring.profiles.active"  defaultValue="local"/>
+
+    <!-- Compact stack traces -->
+    <conversionRule conversionWord="shortException"
+                    converterClass="net.logstash.logback.stacktrace.ShortenedThrowableConverter"/>
+    <shortException classNameLength="30" maxDepthPerThrowable="30" maxLength="20480" rootCauseFirst="true"/>
+
+    <!-- JSON to stdout (K8s-friendly) -->
+    <appender name="JSON_STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- include MDC (traceId/spanId from Sleuth or Micrometer) -->
+            <includeMdc>true</includeMdc>
+            <includeStructuredArguments>true</includeStructuredArguments>
+            <includeStacktrace>true</includeStacktrace>
+
+            <!-- map common field names -->
+            <fieldNames>
+                <timestamp>@timestamp</timestamp>
+                <level>level</level>
+                <logger>logger</logger>
+                <thread>thread</thread>
+                <message>message</message>
+            </fieldNames>
+
+            <!-- map MDC fields for tracing -->
+            <mdcFields>
+                <mdcField>traceId</mdcField>
+                <mdcField>spanId</mdcField>
+            </mdcFields>
+
+            <!-- add fixed tags -->
+            <customFields>{"service.name":"${appName}","service.environment":"${env}"}</customFields>
+        </encoder>
+    </appender>
+
+    <!-- Root logger -->
+    <root level="INFO">
+        <appender-ref ref="JSON_STDOUT"/>
+    </root>
+
+    <!-- Set chatty libraries lower if needed -->
+    <logger name="org.apache.http" level="WARN"/>
+    <logger name="com.mysql.cj" level="INFO"/>
+    <logger name="org.springframework" level="INFO"/>
+    <logger name="com.retailpulse" level="INFO"/>
+
+    <!-- If you absolutely need rolling files alongside stdout, uncomment:
+    <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+      <file>/var/log/app/app.json.log</file>
+      <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+        <fileNamePattern>/var/log/app/app.json.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+        <maxHistory>7</maxHistory>
+      </rollingPolicy>
+      <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+        <providers>
+            <timestamp/>
+            <version/>
+            <pattern>
+                <pattern>
+                    {
+                    "logger":"%logger{36}",
+                    "thread":"%thread",
+                    "level":"%level",
+                    "message":%jsonMessage,
+                    "exception":%jsonEx{shortened=true},
+                    "app":"${appName}",
+                    "env":"${env}"
+                    }
+                </pattern>
+            </pattern>
+            <mdc/>
+            <globalCustomFields>{"service.name":"${appName}","service.environment":"${env}"}</globalCustomFields>
+        </providers>
+      </encoder>
+    </appender>
+    <root level="INFO">
+      <appender-ref ref="JSON_STDOUT"/>
+      <appender-ref ref="JSON_FILE"/>
+    </root>
+    -->
+</configuration>

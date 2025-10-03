@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-ui
+  namespace: ns-retailpulse
+  labels:
+    app: kafka-ui-retailpulse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-ui-retailpulse
+  template:
+    metadata:
+      labels:
+        app: kafka-ui-retailpulse
+    spec:
+      containers:
+        - name: kafka-ui
+          # Use a recent stable version. Check Docker Hub for latest tags.
+          image: provectuslabs/kafka-ui:latest # Or pin to a specific version like v0.7.2
+          imagePullPolicy: Always # Consider IfNotPresent for pinned versions
+          ports:
+            - containerPort: 8080
+          env:
+            # Configure the UI to connect to your Kafka cluster
+            # Use the internal service name created by our Kafka setup
+            - name: KAFKA_CLUSTERS_0_NAME
+              value: "retailpulse-local-kraft"
+            - name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS
+              value: "kafka-service.ns-retailpulse.svc.cluster.local:9092" # Internal service and port
+            # Optional: Disable auth for the UI itself (default is no auth)
+            # - name: AUTH_TYPE
+            #   value: "LOGIN_FORM" # Or "DISABLED"
+            # Optional: Enable JMX metrics if configured in Kafka
+            # - name: KAFKA_CLUSTERS_0_JMXPORT
+            #   value: "9999"
+            # Optional: Authentication (if Kafka is secured)
+            # - name: KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL
+            #   value: "SASL_PLAINTEXT" # Or SASL_SSL, SSL
+            # - name: KAFKA_CLUSTERS_0_SASL_JAAS_CONFIG
+            #   value: "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"user\" password=\"password\";"
+            # - name: KAFKA_CLUSTERS_0_PROPERTIES_SASL_MECHANISM
+            #   value: "PLAIN"
+          # resources: {} # Add resource requests/limits if needed
+          # livenessProbe:
+          #   httpGet:
+          #     path: /
+          #     port: 8080
+          #   initialDelaySeconds: 30
+          #   periodSeconds: 10
+          # readinessProbe:
+          #   httpGet:
+          #     path: /
+          #     port: 8080
+          #   initialDelaySeconds: 20
+          #   periodSeconds: 5
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-ui-service
+  namespace: ns-retailpulse
+  labels:
+    app: kafka-ui-retailpulse
+spec:
+  selector:
+    app: kafka-ui-retailpulse
+  ports:
+    - protocol: TCP
+      port: 8080           # Port exposed by the Service internally
+      targetPort: 8080     # Port the container listens on
+      nodePort: 30095      # EXTERNAL NODEPORT - SPECIFIED AS REQUESTED
+  type: NodePort           # Use LoadBalancer for cloud environments if preferred
