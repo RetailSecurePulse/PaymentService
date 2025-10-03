@@ -7,7 +7,7 @@ plugins {
 }
 
 group = 'com.retailpulse'
-version = '0.0.1-SNAPSHOT'
+version = '0.0.1'
 description = 'Payment project for Retails'
 
 java {
@@ -52,10 +52,12 @@ dependencies {
 	annotationProcessor 'org.projectlombok:lombok'
 
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.0'
-	implementation "com.stripe:stripe-java:29.5.0"
+	implementation 'com.stripe:stripe-java:29.5.0'
+	implementation 'org.springframework.kafka:spring-kafka'
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
+	testImplementation 'org.springframework.kafka:spring-kafka-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
 	testImplementation 'org.junit.jupiter:junit-jupiter'
