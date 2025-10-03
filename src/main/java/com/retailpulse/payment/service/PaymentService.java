@@ -63,7 +63,16 @@ public class PaymentService {
 
         appEvents.publishEvent(new PaymentCommittedEvent(payment.getId(), paymentIntent.getId(), PaymentStatus.PROCESSING));
         logger.info("Created PaymentIntent with ID: {}", payment.getId());
-        return new PaymentResponse(paymentIntent.getClientSecret(), paymentIntent.getId());
+        return new PaymentResponse(
+                paymentIntent.getClientSecret(),
+                paymentIntent.getId(),
+                payment.getId(),
+                payment.getTransactionId(),
+                (payment.getTotalPrice() / 100.0),
+                payment.getCurrency(),
+                payment.getPaymentStatus(),
+                payment.getCreatedDate()
+        );
     }
 
     @Transactional
