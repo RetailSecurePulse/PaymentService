@@ -16,7 +16,7 @@ public class PaymentEvent {
 
     private Long paymentId;
     private String paymentIntentId;
-    private String transactionId;
+    private Long transactionId;
     private Long totalPrice;
     private String currency;
     private String customerEmail;

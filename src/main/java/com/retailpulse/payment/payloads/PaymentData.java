@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class PaymentData {
     @JsonProperty("transaction_id")
-    private String transactionId;
+    private Long transactionId;
     @JsonProperty("description")
     private String description;
     @JsonProperty("amount")

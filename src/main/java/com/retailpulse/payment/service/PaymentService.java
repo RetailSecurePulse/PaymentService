@@ -1,5 +1,6 @@
 package com.retailpulse.payment.service;
 
+import com.retailpulse.payment.events.PaymentCommittedEvent;
 import com.retailpulse.payment.model.Payment;
 import com.retailpulse.payment.model.PaymentStatus;
 import com.retailpulse.payment.payloads.PaymentData;
@@ -16,6 +17,8 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import static com.retailpulse.payment.model.Constants.*;
@@ -24,17 +27,19 @@ import static com.retailpulse.payment.model.Constants.*;
 @RequiredArgsConstructor
 public class PaymentService {
 
-    private static final String STRIPE_PUBLIC_KEY = "pk_test_51Rwa9JCTUDg2faMiUxYG28Di0rDMjD4C5xEPCkn0nv6bPc1Qy8WvivfAhhykVxGlAqfeF2tvILpEd0K9je6WPhLo00bfZAazGS";
-    private static final String STRIPE_SECRET_KEY = "sk_test_51Rwa9JCTUDg2faMia0WxH3YMsOxisCmZ9OsuL6Lcl5OF17dkOFF7smfZeBYXWaOxWnIyTeQHvufuKjFQsyS36eVj00cc8enDMQ";
-    private static final String WEBHOOK_ENDPOINT_KEY = "whsec_8e7a9359be842a9398f1d48ae97e4c7a77d555093fe0a9466b6ca699045b0a77";
+    @Value("${stripe.secret-key}")
+    private String stripeSecretKey;
+    @Value("${stripe.webhook-endpoint-key}")
+    private String webhookEndpointKey;
 
     private static final Logger logger = LoggerFactory.getLogger(PaymentService.class);
 
     private final PaymentRepo paymentRepo;
+    private final ApplicationEventPublisher appEvents;
 
     @Transactional
     public PaymentResponse createPaymentIntent(PaymentData data) throws StripeException {
-        Stripe.apiKey = STRIPE_SECRET_KEY;
+        Stripe.apiKey = stripeSecretKey;
         PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
                 .setAmount((long) (data.getTotalPrice() * 100)) // Amount in cents
                 .setCurrency(data.getCurrency())
@@ -53,32 +58,39 @@ public class PaymentService {
         payment.setCurrency(data.getCurrency());
         payment.setPaymentStatus(PaymentStatus.PROCESSING);
         payment.setCustomerEmail(data.getCustomerEmail());
-        paymentRepo.save(payment);
+        payment = paymentRepo.save(payment);
+
+        appEvents.publishEvent(new PaymentCommittedEvent(payment.getId(), paymentIntent.getId(), PaymentStatus.PROCESSING));
+        logger.info("Created PaymentIntent with ID: {}", payment.getId());
         return new PaymentResponse(paymentIntent.getClientSecret(), paymentIntent.getId());
     }
 
     @Transactional
     public String handleStripeEvent(String payload, String sigHeader) {
         try {
-            Event event = Webhook.constructEvent(payload, sigHeader, WEBHOOK_ENDPOINT_KEY);
+            Event event = Webhook.constructEvent(payload, sigHeader, webhookEndpointKey);
+            PaymentIntent intent = (PaymentIntent) event.getDataObjectDeserializer().getObject().orElseThrow();
             switch (event.getType()) {
                 case PAYMENT_SUCCESS_WEBHOOK -> {
-                    PaymentIntent intent = (PaymentIntent) event.getDataObjectDeserializer().getObject().orElseThrow();
                     updatePaymentStatus(intent.getId(), PaymentStatus.SUCCEEDED);
-                    logger.info("Payment succeeded for PaymentIntent ID: {}", intent.getId());
-                    logger.info("Payment succeeded event type: {}", event.getType());
+                    logger.info("Payment succeeded for PaymentIntent ID: {}, event: {}", intent.getId(), event.getType());
+                    paymentRepo.findByPaymentIntentId(intent.getId()).ifPresent( p ->
+                            appEvents.publishEvent(new PaymentCommittedEvent(p.getId(), p.getPaymentIntentId(), p.getPaymentStatus()))
+                    );
                 }
                 case PAYMENT_FAILED_WEBHOOK -> {
-                    PaymentIntent intent = (PaymentIntent) event.getDataObjectDeserializer().getObject().orElseThrow();
                     updatePaymentStatus(intent.getId(), PaymentStatus.FAILED);
-                    logger.info("Payment failed for PaymentIntent ID: {}", intent.getId());
-                    logger.info("Payment failed event type: {}", event.getType());
+                    logger.info("Payment failed for PaymentIntent ID: {}, event: {}", intent.getId(), event.getType());
+                    paymentRepo.findByPaymentIntentId(intent.getId()).ifPresent( p ->
+                            appEvents.publishEvent(new PaymentCommittedEvent(p.getId(), p.getPaymentIntentId(), p.getPaymentStatus()))
+                    );
                 }
                 case PAYMENT_CANCELED_WEBHOOK -> {
-                    PaymentIntent intent = (PaymentIntent) event.getDataObjectDeserializer().getObject().orElseThrow();
                     updatePaymentStatus(intent.getId(), PaymentStatus.CANCELED);
-                    logger.warn("Payment canceled for PaymentIntent ID: {}", intent.getId());
-                    logger.info("Payment canceled event type: {}", event.getType());
+                    logger.warn("Payment canceled for PaymentIntent ID: {}, event: {}", intent.getId(), event.getType());
+                    paymentRepo.findByPaymentIntentId(intent.getId()).ifPresent( p ->
+                            appEvents.publishEvent(new PaymentCommittedEvent(p.getId(), p.getPaymentIntentId(), p.getPaymentStatus()))
+                    );
                 }
                 case PAYMENT_INTENT_CREATED_WEBHOOK -> logger.info("Payment intent created event type: {}", event.getType());
                 default -> logger.info("Unhandled event type: {}", event.getType());
@@ -87,7 +99,6 @@ public class PaymentService {
         } catch (SignatureVerificationException e) {
             logger.error("Webhook signature verification failed : {}", e.getMessage());
             return INVALID_SIGNATURE;
-
         }
 
         return STRIPE_PAYMENT_RECEIVED;
