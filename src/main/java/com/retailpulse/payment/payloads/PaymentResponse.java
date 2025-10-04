@@ -19,7 +19,7 @@ public class PaymentResponse {
     @JsonProperty("paymentId")
     private Long paymentId;
     @JsonProperty("transactionId")
-    private String transactionId;
+    private Long transactionId;
     @JsonProperty("totalPrice")
     private Double totalPrice;
     @JsonProperty("currency")

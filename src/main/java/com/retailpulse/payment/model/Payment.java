@@ -25,7 +25,7 @@ public class Payment {
     @Column(name = "payment_id", nullable = false)
     private Long id;
     @Column(name = "transaction_id", nullable = false)
-    private String transactionId;
+    private Long transactionId;
     @Column(name = "payment_intent_id", nullable = false)
     private String paymentIntentId;
     @Column(name = "description")
