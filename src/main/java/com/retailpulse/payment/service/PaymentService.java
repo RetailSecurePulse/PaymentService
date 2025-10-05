@@ -119,10 +119,10 @@ public class PaymentService {
     }
 
     private void updatePaymentStatus(String intentId, PaymentStatus status) {
-        paymentRepo.findByPaymentIntentId(intentId)
-                .ifPresent( payment -> {
+        paymentRepo.findByPaymentIntentId(intentId).ifPresent( payment -> {
                     payment.setPaymentStatus(status);
                     paymentRepo.save(payment);
+                    appEvents.publishEvent(new PaymentCommittedEvent(payment.getId(), payment.getPaymentIntentId(), payment.getPaymentStatus()));
                 });
     }
 
