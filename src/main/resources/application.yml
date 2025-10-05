@@ -7,8 +7,8 @@ auth:
   jwt.key.set.uri: http://localhost:30081/oauth2/jwks
 
 stripe:
-  apiKey: ${STRIPE_API_KEY:sk_test_51Rwa98Fo0IYXjs5fnTRUlbpN0TwKCHV2GhVI1hfCM1oI8bMYfP1aYetD8hC9vYazOAoR9fd6AvxV9dn9eanK98Wo00voU4Crd8}
-  webhookSecret: ${STRIPE_WEBHOOK_SECRET:whsec_53d63261913c1329c7f48c310297ac40b4d0ef6bb1f6bc3f541af4b6114cf3a7}
+  apiKey: ${STRIPE_API_KEY:sk_test_51SBx0NH1LGmpXQLTMttHXOrB9QNPYnWRT5bIzS5W33eDJsX836XTfHKSkwmXFNd4Crnbqwh6XKm8Lu0yoeqdSPBt00evCK3s0C} 
+  webhookSecret: ${STRIPE_WEBHOOK_SECRET:whsec_a4f1e7714e26b32a81c5fdf030687e926f18b2ef7b73df35b76ec12731efd43a}
 
 #topic name for payment events
 app:
