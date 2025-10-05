@@ -6,12 +6,9 @@ auth:
   origin: "http://localhost:4200"
   jwt.key.set.uri: http://localhost:30081/oauth2/jwks
 
-sales-service:
-  url: http://localhost:30085
-
 stripe:
-  apiKey: ${STRIPE_API_KEY:sk_test_51SBx0NH1LGmpXQLTMttHXOrB9QNPYnWRT5bIzS5W33eDJsX836XTfHKSkwmXFNd4Crnbqwh6XKm8Lu0yoeqdSPBt00evCK3s0C}    # recommended: override with env var
-  webhookSecret: ${STRIPE_WEBHOOK_SECRET:whsec_a4f1e7714e26b32a81c5fdf030687e926f18b2ef7b73df35b76ec12731efd43a}
+  apiKey: ${STRIPE_API_KEY:sk_test_51Rwa98Fo0IYXjs5fnTRUlbpN0TwKCHV2GhVI1hfCM1oI8bMYfP1aYetD8hC9vYazOAoR9fd6AvxV9dn9eanK98Wo00voU4Crd8}
+  webhookSecret: ${STRIPE_WEBHOOK_SECRET:whsec_53d63261913c1329c7f48c310297ac40b4d0ef6bb1f6bc3f541af4b6114cf3a7}
 
 #topic name for payment events
 app:
@@ -47,6 +44,7 @@ spring:
       naming:
         physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
     show-sql: true
+    database-platform: org.hibernate.dialect.MySQLDialect
     properties:
       hibernate:
         jdbc:
@@ -71,6 +69,16 @@ spring:
         enable.idempotence: true
         spring.json.add.type.headers: false
 
+#Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+
+sales-service:
+  url: http://localhost:30085
+
 logging:
   level:
     root: INFO
@@ -80,10 +88,3 @@ logging:
     com.retailpulse: DEBUG
   file:
     name: logs/rp-sales.log
-
-  #Actuator
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health, info, prometheus

@@ -27,12 +27,15 @@ data:
           set:
             uri: "http://app-iam:8081/oauth2/jwks" # Or use IAM_SVC placeholder
 
-    sales-service:
-      url: "http://svc-rp-sales:8085" # Or use SALES_SVC_URL placeholder
-
     stripe:
       apiKey: ${STRIPE_API_KEY} # Env Var Reference
       webhookSecret: ${STRIPE_WEBHOOK_SECRET} # Env Var Reference
+    
+    app:
+      kafka:
+        topic:
+          payment-events: payment-events
+          payment-events-dlt: payment-events-dlt
 
     spring:
       application:
@@ -54,6 +57,30 @@ data:
         user:
           name: admin
           password: admin
+
+      kafka:
+        bootstrap-servers:
+          - ${KAFKA_BOOTSTRAP_SERVERS:kafka-service.ns-retailpulse.svc.cluster.local:9092}
+        template:
+          default-topic: payment-events
+        producer:
+          key-serializer: org.apache.kafka.common.serialization.StringSerializer
+          value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+          properties:
+            acks: all
+            retries: 10
+            enable.idempotence: true
+            spring.json.add.type.headers: false
+
+    #Actuator
+    management:
+      endpoints:
+        web:
+          exposure:
+            include: health, info, prometheus
+
+    sales-service:
+      url: "http://svc-rp-sales:8085" # Or use SALES_SVC_URL placeholder
 
     logging:
       level:
