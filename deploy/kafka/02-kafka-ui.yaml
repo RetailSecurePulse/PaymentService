@@ -26,7 +26,7 @@ spec:
             # Configure the UI to connect to your Kafka cluster
             # Use the internal service name created by our Kafka setup
             - name: KAFKA_CLUSTERS_0_NAME
-              value: "retailpulse-local-kraft"
+              value: "retailpulse-local"
             - name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS
               value: "kafka-service.ns-retailpulse.svc.cluster.local:9092" # Internal service and port
             # Optional: Disable auth for the UI itself (default is no auth)
