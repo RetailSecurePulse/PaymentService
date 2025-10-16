@@ -72,7 +72,7 @@ data:
   KAFKA_BROKER_ID: "1"
   KAFKA_ZOOKEEPER_CONNECT: "zookeeper-service.ns-retailpulse.svc.cluster.local:2181"
   KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,EXTERNAL://0.0.0.0:9094"
-  KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka-service.ns-retailpulse.svc.cluster.local:9092,EXTERNAL://localhost:30094"
+  KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka-service.ns-retailpulse.svc.cluster.local:9092,EXTERNAL://localhost:31094"
   KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT"
   KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
   KAFKA_LOG_DIRS: "/var/lib/kafka/data"
@@ -97,17 +97,17 @@ metadata:
 spec:
   selector:
     app: kafka-retailpulse
-    ports:
-      - name: plaintext
-        port: 9092
-        targetPort: 9092
-        protocol: TCP
-      - name: external
-        port: 9094
-        targetPort: 9094
-        nodePort: 30094
-        protocol: TCP
-    type: NodePort
+  ports:
+    - name: plaintext
+      port: 9092
+      targetPort: 9092
+      protocol: TCP
+    - name: external
+      port: 9094
+      targetPort: 9094
+      nodePort: 31094
+      protocol: TCP
+  type: NodePort
 ---
 # --- Kafka StatefulSet (single broker for development)
 apiVersion: apps/v1
@@ -157,13 +157,13 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 6
-            livenessProbe:
-              tcpSocket:
-                port: 9092
-              initialDelaySeconds: 60
-              periodSeconds: 30
-              timeoutSeconds: 10
-              failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: 9092
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
       volumes:
         - name: kafka-data
           persistentVolumeClaim:
