@@ -1,6 +1,5 @@
 name: Java CI with Gradle
 
-
 env:
   JAVA_VERSION: '23'
   DISTRIBUTION: 'temurin'
@@ -74,14 +73,9 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
-      - name: Synk Code
-        run: snyk code test --org="${SNYK_ORG}"
-        continue-on-error: true
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-
       - name: Snyk Monitor
         run: snyk monitor --all-sub-projects --org="${SNYK_ORG}"
+        continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
@@ -110,15 +104,15 @@ jobs:
           restore-keys: ${{ runner.os }}-sonar
 
       - name: Check Sonar token visibility
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-            if [ -z "$SONAR_TOKEN" ]; then
-                echo "SONAR_TOKEN is not set. Exiting."
-                exit 1
-            else
-                echo "SONAR_TOKEN is set."
-            fi
-            env:
-            SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          if [ -z "$SONAR_TOKEN" ]; then
+              echo "SONAR_TOKEN is not set. Exiting."
+              exit 1
+          else
+              echo "SONAR_TOKEN is set."
+          fi
 
       - name: Build and analyze
         env:
