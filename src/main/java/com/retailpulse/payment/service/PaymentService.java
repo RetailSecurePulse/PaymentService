@@ -1,21 +1,29 @@
 package com.retailpulse.payment.service;
 
+import com.google.gson.JsonSyntaxException;
+import com.retailpulse.payment.events.PaymentCommittedEvent;
 import com.retailpulse.payment.model.Payment;
 import com.retailpulse.payment.model.PaymentStatus;
 import com.retailpulse.payment.payloads.PaymentData;
 import com.retailpulse.payment.payloads.PaymentResponse;
 import com.retailpulse.payment.repos.PaymentRepo;
 import com.stripe.Stripe;
+import com.stripe.exception.EventDataObjectDeserializationException;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
+import com.stripe.model.EventDataObjectDeserializer;
 import com.stripe.model.PaymentIntent;
+import com.stripe.model.StripeObject;
+import com.stripe.net.ApiResource;
 import com.stripe.net.Webhook;
 import com.stripe.param.PaymentIntentCreateParams;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import static com.retailpulse.payment.model.Constants.*;
@@ -24,17 +32,20 @@ import static com.retailpulse.payment.model.Constants.*;
 @RequiredArgsConstructor
 public class PaymentService {
 
-    private static final String STRIPE_PUBLIC_KEY = "pk_test_51Rwa9JCTUDg2faMiUxYG28Di0rDMjD4C5xEPCkn0nv6bPc1Qy8WvivfAhhykVxGlAqfeF2tvILpEd0K9je6WPhLo00bfZAazGS";
-    private static final String STRIPE_SECRET_KEY = "sk_test_51Rwa9JCTUDg2faMia0WxH3YMsOxisCmZ9OsuL6Lcl5OF17dkOFF7smfZeBYXWaOxWnIyTeQHvufuKjFQsyS36eVj00cc8enDMQ";
-    private static final String WEBHOOK_ENDPOINT_KEY = "whsec_8e7a9359be842a9398f1d48ae97e4c7a77d555093fe0a9466b6ca699045b0a77";
+    @Value("${stripe.apiKey}")
+    private String stripeSecretKey;
+
+    @Value("${stripe.webhookSecret}")
+    private String webhookEndpointKey;
 
     private static final Logger logger = LoggerFactory.getLogger(PaymentService.class);
 
     private final PaymentRepo paymentRepo;
+    private final ApplicationEventPublisher appEvents;
 
     @Transactional
     public PaymentResponse createPaymentIntent(PaymentData data) throws StripeException {
-        Stripe.apiKey = STRIPE_SECRET_KEY;
+        Stripe.apiKey = stripeSecretKey;
         PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
                 .setAmount((long) (data.getTotalPrice() * 100)) // Amount in cents
                 .setCurrency(data.getCurrency())
@@ -53,41 +64,42 @@ public class PaymentService {
         payment.setCurrency(data.getCurrency());
         payment.setPaymentStatus(PaymentStatus.PROCESSING);
         payment.setCustomerEmail(data.getCustomerEmail());
-        paymentRepo.save(payment);
-        return new PaymentResponse(paymentIntent.getClientSecret(), paymentIntent.getId());
+        payment = paymentRepo.save(payment);
+
+        appEvents.publishEvent(new PaymentCommittedEvent(payment.getId(), paymentIntent.getId(), PaymentStatus.PROCESSING));
+        logger.info("Created PaymentIntent with ID: {}", payment.getId());
+        return new PaymentResponse(
+                paymentIntent.getClientSecret(),
+                paymentIntent.getId(),
+                payment.getId(),
+                payment.getTransactionId(),
+                (payment.getTotalPrice() / 100.0),
+                payment.getCurrency(),
+                payment.getPaymentStatus(),
+                payment.getCreatedDate()
+        );
     }
 
     @Transactional
     public String handleStripeEvent(String payload, String sigHeader) {
+        final Event event;
         try {
-            Event event = Webhook.constructEvent(payload, sigHeader, WEBHOOK_ENDPOINT_KEY);
+            event = Webhook.constructEvent(payload, sigHeader, webhookEndpointKey);
+        } catch (SignatureVerificationException e) {
+            logger.error("Webhook signature verification failed for payload: {}. Error: {}", safePreview(payload), e.getMessage(), e);
+            return INVALID_SIGNATURE;
+        }
+        try {
             switch (event.getType()) {
-                case PAYMENT_SUCCESS_WEBHOOK -> {
-                    PaymentIntent intent = (PaymentIntent) event.getDataObjectDeserializer().getObject().orElseThrow();
-                    updatePaymentStatus(intent.getId(), PaymentStatus.SUCCEEDED);
-                    logger.info("Payment succeeded for PaymentIntent ID: {}", intent.getId());
-                    logger.info("Payment succeeded event type: {}", event.getType());
-                }
-                case PAYMENT_FAILED_WEBHOOK -> {
-                    PaymentIntent intent = (PaymentIntent) event.getDataObjectDeserializer().getObject().orElseThrow();
-                    updatePaymentStatus(intent.getId(), PaymentStatus.FAILED);
-                    logger.info("Payment failed for PaymentIntent ID: {}", intent.getId());
-                    logger.info("Payment failed event type: {}", event.getType());
-                }
-                case PAYMENT_CANCELED_WEBHOOK -> {
-                    PaymentIntent intent = (PaymentIntent) event.getDataObjectDeserializer().getObject().orElseThrow();
-                    updatePaymentStatus(intent.getId(), PaymentStatus.CANCELED);
-                    logger.warn("Payment canceled for PaymentIntent ID: {}", intent.getId());
-                    logger.info("Payment canceled event type: {}", event.getType());
-                }
+                case PAYMENT_SUCCESS_WEBHOOK -> handlePaymentIntentEvent(event, PaymentStatus.SUCCEEDED);
+                case PAYMENT_FAILED_WEBHOOK -> handlePaymentIntentEvent(event, PaymentStatus.FAILED);
+                case PAYMENT_CANCELED_WEBHOOK -> handlePaymentIntentEvent(event, PaymentStatus.CANCELED);
                 case PAYMENT_INTENT_CREATED_WEBHOOK -> logger.info("Payment intent created event type: {}", event.getType());
                 default -> logger.info("Unhandled event type: {}", event.getType());
             }
-
-        } catch (SignatureVerificationException e) {
-            logger.error("Webhook signature verification failed : {}", e.getMessage());
-            return INVALID_SIGNATURE;
-
+        } catch (Exception e) {
+            logger.error("Failed to parse webhook payload. payloadPreview={}, error={}", safePreview(payload), e.getMessage(), e);
+            throw new RuntimeException("processing error", e);
         }
 
         return STRIPE_PAYMENT_RECEIVED;
@@ -107,10 +119,71 @@ public class PaymentService {
     }
 
     private void updatePaymentStatus(String intentId, PaymentStatus status) {
-        paymentRepo.findByPaymentIntentId(intentId)
-                .ifPresent( payment -> {
+        paymentRepo.findByPaymentIntentId(intentId).ifPresent( payment -> {
                     payment.setPaymentStatus(status);
                     paymentRepo.save(payment);
+                    appEvents.publishEvent(new PaymentCommittedEvent(payment.getId(), payment.getPaymentIntentId(), payment.getPaymentStatus()));
                 });
     }
+
+    /**
+     * Extracts a PaymentIntent from the event safely then delegates to a transactional processor.
+     */
+    private void handlePaymentIntentEvent(Event event, PaymentStatus targetStatus) {
+        PaymentIntent intent = extractPaymentIntent(event);
+
+        if (intent == null) {
+            logger.error("Could not obtain PaymentIntent for event {} type {} — skipping processing",
+                    event.getId(), event.getType());
+            return;
+        }
+        updatePaymentStatus(intent.getId(), targetStatus);
+        logger.info("Payment {} for PaymentIntent ID={} (event {})", targetStatus, intent.getId(), event.getId());
+    }
+
+    /**
+     * Safely obtain PaymentIntent: try SDK deserializer, then raw JSON.
+     */
+    private PaymentIntent extractPaymentIntent(Event event) {
+        EventDataObjectDeserializer deserializer = event.getDataObjectDeserializer();
+        PaymentIntent intent = null;
+
+        if (deserializer.getObject().isPresent()) {
+            Object obj = deserializer.getObject().get();
+            if (obj instanceof PaymentIntent pi) {
+                intent = pi;
+            } else {
+                logger.warn("Event {}: deserializer returned object of type {} (expected PaymentIntent)",
+                        event.getId(), obj.getClass().getName());
+            }
+        }
+
+        if (intent == null) {
+            try {
+                Object raw = event.getData().getObject();
+                String json = (raw instanceof com.stripe.model.StripeObject)
+                        ? ((com.stripe.model.StripeObject) raw).toJson()
+                        : raw.toString();
+
+                intent = ApiResource.GSON.fromJson(json, PaymentIntent.class);
+                logger.info("Deserialized PaymentIntent from raw JSON for event {} -> id={}", event.getId(), intent.getId());
+            } catch (JsonSyntaxException je) {
+                logger.error("GSON failed to deserialize PaymentIntent for event {}. Raw payload preview={}. Error={}",
+                        event.getId(), safePreview(event.getData().getObject().toString()), je.getMessage(), je);
+            } catch (Exception ex) {
+                logger.error("Unexpected error deserializing PaymentIntent for event {}: {}", event.getId(), ex.getMessage(), ex);
+            }
+        }
+
+        return intent;
+    }
+
+    /**
+     * Helper to avoid logging giant payloads — returns short preview.
+     */
+    private String safePreview(String payload) {
+        if (payload == null) return "<null>";
+        return payload.length() <= 200 ? payload : (payload.substring(0, 200) + "...(truncated)");
+    }
+
 }

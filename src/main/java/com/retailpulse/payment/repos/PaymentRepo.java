@@ -15,10 +15,6 @@ import java.util.Optional;
 public interface PaymentRepo extends JpaRepository<Payment, Long> {
 
     @Transactional
-    @Query("SELECT t FROM Payment t WHERE t.transactionId = :transactionId")
-    Payment findByTransactionId(@Param("transactionId") String transactionId);
-
-    @Transactional
     @Query("SELECT t FROM Payment t WHERE t.paymentIntentId = :paymentIntentId")
     Optional<Payment> findByPaymentIntentId(@Param("paymentIntentId") String paymentIntentId);
 

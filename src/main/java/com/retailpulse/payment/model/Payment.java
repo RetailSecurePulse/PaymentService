@@ -21,12 +21,11 @@ import java.time.LocalDateTime;
 public class Payment {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "payment_seq")
-    @SequenceGenerator(name = "payment_seq", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "payment_id", nullable = false)
     private Long id;
     @Column(name = "transaction_id", nullable = false)
-    private String transactionId;
+    private Long transactionId;
     @Column(name = "payment_intent_id", nullable = false)
     private String paymentIntentId;
     @Column(name = "description")

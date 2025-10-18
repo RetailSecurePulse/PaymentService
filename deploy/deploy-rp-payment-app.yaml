@@ -1,0 +1,185 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-rp-payment-app
+  namespace: ns-retailpulse
+type: Opaque
+stringData:
+  STRIPE_API_KEY: sk_test_51SBx0NH1LGmpXQLTMttHXOrB9QNPYnWRT5bIzS5W33eDJsX836XTfHKSkwmXFNd4Crnbqwh6XKm8Lu0yoeqdSPBt00evCK3s0C
+  STRIPE_WEBHOOK_SECRET: whsec_a4f1e7714e26b32a81c5fdf030687e926f18b2ef7b73df35b76ec12731efd43a
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cm-rp-payment-app
+  namespace: ns-retailpulse
+data:
+  application.yaml: |
+    server:
+      port: 8087
+
+    auth:
+      enabled: false
+      origin: "http://localhost:4200" # Or use WEB_APP_ORIGIN placeholder if needed
+      jwt:
+        key:
+          set:
+            uri: "http://app-iam:8081/oauth2/jwks" # Or use IAM_SVC placeholder
+
+    stripe:
+      apiKey: ${STRIPE_API_KEY} # Env Var Reference
+      webhookSecret: ${STRIPE_WEBHOOK_SECRET} # Env Var Reference
+    
+    app:
+      kafka:
+        topic:
+          payment-events: payment-events
+          payment-events-dlt: payment-events-dlt
+
+    spring:
+      application:
+        name: Payment
+
+      datasource:
+        url: "jdbc:mysql://retailpulse-payment-rp-payment-sql-svc:3306/RPPaymentDB" # Or use MYSQL_HOST placeholder
+        username: root
+        password: password
+        driver-class-name: com.mysql.cj.jdbc.Driver
+
+      jpa:
+        hibernate:
+          ddl-auto: update
+        database-platform: org.hibernate.dialect.MySQL8Dialect # Consider MySQLDialect
+        show-sql: true
+
+      security:
+        user:
+          name: admin
+          password: admin
+
+      kafka:
+        bootstrap-servers:
+          - ${KAFKA_BOOTSTRAP_SERVERS:kafka-service.ns-retailpulse.svc.cluster.local:9092}
+        template:
+          default-topic: payment-events
+        producer:
+          key-serializer: org.apache.kafka.common.serialization.StringSerializer
+          value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+          properties:
+            acks: all
+            retries: 10
+            enable.idempotence: true
+            spring.json.add.type.headers: false
+
+    #Actuator
+    management:
+      endpoints:
+        web:
+          exposure:
+            include: health, info, prometheus
+
+    sales-service:
+      url: "http://svc-rp-sales:8085" # Or use SALES_SVC_URL placeholder
+
+    logging:
+      level:
+        root: INFO
+        org.springframework.security: TRACE
+        com.retailpulse: DEBUG
+      file:
+        name: logs/rp-payment.log
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deploy-rp-payment
+  namespace: ns-retailpulse
+  labels:
+    app: deploy-rp-payment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: deploy-rp-payment
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: deploy-rp-payment
+    spec:
+      initContainers:
+        # Wait for MySQL Service to be reachable
+        - name: wait-for-mysql
+          image: busybox:1.35
+          command:
+            - sh
+            - -c
+            - >
+              until nc -z mysql-rp-payment 3306; do
+                echo "Waiting for MySQL at mysql-rp-payment:3306...";
+                sleep 5;
+              done;
+              echo "MySQL is ready!";
+          env:
+            - name: MYSQL_HOST
+              value: mysql-rp-payment
+            - name: MYSQL_PORT
+              value: "3306"
+      containers:
+        - image: docker.io/casperyap/rp-payment-app:v0.1.0 # Adjust image name/tag if needed
+          name: app-rp-payment
+          imagePullPolicy: Always # Adjust if needed
+          env:
+            # Inject Stripe secrets
+            - name: STRIPE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: secret-rp-payment-app
+                  key: STRIPE_API_KEY
+            - name: STRIPE_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: secret-rp-payment-app
+                  key: STRIPE_WEBHOOK_SECRET
+          volumeMounts:
+            - name: config-volume
+              mountPath: /app/config
+          ports:
+            - containerPort: 8087
+          # livenessProbe:
+          #   httpGet:
+          #     path: /actuator/health # Adjust if different
+          #     port: 8087
+          #   initialDelaySeconds: 30
+          #   periodSeconds: 10
+          # readinessProbe:
+          #   httpGet:
+          #     path: /actuator/health # Adjust if different
+          #     port: 8087
+          #   initialDelaySeconds: 20
+          #   periodSeconds: 5
+          resources: {}
+      volumes:
+        - name: config-volume
+          configMap:
+            name: cm-rp-payment-app
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-rp-payment
+  namespace: ns-retailpulse
+spec:
+  selector:
+    app: deploy-rp-payment
+  ports:
+    - port: 8087
+      protocol: TCP
+      targetPort: 8087
+      nodePort: 30087
+  type: NodePort

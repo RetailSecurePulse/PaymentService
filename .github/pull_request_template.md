@@ -1,5 +1,5 @@
 ## Ticket
-[RESB-XXXX](https://renterscore.atlassian.net/browse/RESB-XXXX) - [RESB/Android]
+[RESB-XXXX](https://renterscore.atlassian.net/browse/RESB-XXXX) - [RESB/JAVA]
 
 ## Changes
 - 
