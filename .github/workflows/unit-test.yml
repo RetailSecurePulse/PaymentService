@@ -119,5 +119,6 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           ./gradlew clean test jacocoTestReport \
-          sonarqube --info \
-          -Dsonar.token="$SONAR_TOKEN"
+          sonar --info \
+          -Dsonar.token="$SONAR_TOKEN" \
+          -Dsonar.verbose=true
