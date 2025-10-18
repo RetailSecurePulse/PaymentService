@@ -102,14 +102,19 @@ tasks.named('jacocoTestReport', JacocoReport) {
         csv.required = false
     }
 
-    classDirectories.setFrom(fileTree(dir: "$build/classes/java/main", excludes: ['**/config/**', '**/dto/**']))
+    def mainClassesDir = layout.buildDirectory.dir('classes/java/main')
+    classDirectories.setFrom(
+            mainClassesDir.map { d ->
+                d.asFileTree.matching {
+                    exclude '**/config/**', '**/dto/**'
+                }
+            }
+    )
     sourceDirectories.setFrom(files('src/main/java'))
-    executionData.setFrom(fileTree(dir: build, includes: ['jacoco/test.exec', 'jacoco/test*.exec', 'jacoco/*.exec']))
 }
 
 tasks.named("jacocoTestCoverageVerification", JacocoCoverageVerification) {
     dependsOn tasks.named("test")
-    dependsOn tasks.named("compileJava") // FIX: Explicit dependency to avoid Gradle validation error
 
     violationRules {
         rule {
@@ -119,12 +124,18 @@ tasks.named("jacocoTestCoverageVerification", JacocoCoverageVerification) {
         }
     }
 
-    classDirectories.setFrom(fileTree(dir: "$build/classes/java/main", excludes: ['**/config/**', '**/dto/**']))
+    def mainClassesDir = layout.buildDirectory.dir('classes/java/main')
+    classDirectories.setFrom(
+            mainClassesDir.map { d ->
+                d.asFileTree.matching {
+                    exclude '**/config/**', '**/dto/**'
+                }
+            }
+    )
     sourceDirectories.setFrom(files('src/main/java'))
-    executionData.setFrom(fileTree(dir: build, includes: ['jacoco/test.exec', 'jacoco/test*.exec', 'jacoco/*.exec']))
 }
 
-check.dependsOn tasks.named("jacocoTestCoverageVerification")
+check.dependsOn 'jacocoTestCoverageVerification'
 
 sonar {
     properties {

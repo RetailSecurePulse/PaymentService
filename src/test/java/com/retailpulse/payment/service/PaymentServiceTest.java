@@ -24,8 +24,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Optional;
 
-import static com.retailpulse.payment.model.Constants.INVALID_SIGNATURE;
-import static com.retailpulse.payment.model.Constants.STRIPE_PAYMENT_RECEIVED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
