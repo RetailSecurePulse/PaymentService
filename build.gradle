@@ -142,8 +142,8 @@ sonar {
         property "sonar.projectKey", "RetailPulse_PaymentService"
         property "sonar.organization", "retailpulse"
         property "sonar.host.url", "https://sonarcloud.io"
-        property "sonar.junit.reportPaths", "$build/test-results/test"
+        property "sonar.junit.reportPaths", "build/test-results/test"
         property "sonar.java.coveragePlugin", "jacoco"
-        property "sonar.coverage.jacoco.xmlReportPaths", "$build/reports/jacoco/test/jacocoTestReport.xml"
+        property "sonar.coverage.jacoco.xmlReportPaths", "build/reports/jacoco/test/jacocoTestReport.xml"
     }
 }
