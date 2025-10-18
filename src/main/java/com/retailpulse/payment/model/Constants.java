@@ -12,4 +12,5 @@ public class Constants {
     public static final String PAYMENT_FAILED_WEBHOOK = "payment_intent.payment_failed";
     public static final String PAYMENT_CANCELED_WEBHOOK = "payment_intent.canceled";
     public static final String PAYMENT_INTENT_CREATED_WEBHOOK = "payment_intent.created";
+    public static final String BEARER_PREFIX = "Bearer ";
 }

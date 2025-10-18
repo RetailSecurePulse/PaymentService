@@ -1,5 +1,10 @@
 name: Java CI with Gradle
 
+env:
+  JAVA_VERSION: '23'
+  DISTRIBUTION: 'temurin'
+  SNYK_ORG: retailpulse
+
 on:
   push:
     branches:
@@ -15,18 +20,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 23
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.DISTRIBUTION }}
+          cache: gradle
 
-      - name: Gradle Caching
-        uses: actions/cache@v3
-        with:
-          path: ~/.gradle/caches
-          key: gradle-cache-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: gradle-cache
+      - uses: gradle/actions/setup-gradle@v4
 
       - name: Run Tests with Gradle
         run: ./gradlew clean test jacocoTestReport jacocoTestCoverageVerification
@@ -44,3 +45,80 @@ jobs:
           path: build/reports/jacoco/test/jacocoTestReport.xml
 
 
+  security:
+    name: Snyk Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.DISTRIBUTION }}
+          cache: gradle
+
+      # Install Snyk CLI
+      - name: Install Snyk CLI
+        run: npm install -g snyk@latest
+
+      - name: Authenticate Snyk CLI
+        run: snyk auth ${{ secrets.SNYK_TOKEN }}
+
+      - name: Snyk Open Source Scan
+        run: snyk test --all-sub-projects --org="${SNYK_ORG}" --severity-threshold=medium
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      - name: Snyk Monitor
+        run: snyk monitor --all-sub-projects --org="${SNYK_ORG}"
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+  sonar:
+    name: Build and analyze
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: ${{ github.event.pull_request.head.repo.fork == false || github.event_name != 'pull_request' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+
+      - name: Set up JDK 23
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.DISTRIBUTION }}
+          cache: gradle
+
+      - name: Cache SonarQube packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Check Sonar token visibility
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [ -z "$SONAR_TOKEN" ]; then
+              echo "SONAR_TOKEN is not set. Exiting."
+              exit 1
+          else
+              echo "SONAR_TOKEN is set."
+          fi
+
+      - name: Build and analyze
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          ./gradlew clean test jacocoTestReport \
+          sonar --info \
+          -Dsonar.token="$SONAR_TOKEN" \
+          -Dsonar.verbose=true

@@ -40,24 +40,24 @@ jobs:
          context: .
          push: true
          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/spring-boot-api:latest
-
-    # 6. Add SSH key to agent for deployment
-     - name: Add SSH key
-       uses: webfactory/ssh-agent@v0.5.3
-       with:
-         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-    # 7. Deploy to DigitalOcean Droplet
-     - name: Deploy to DigitalOcean Droplet
-       uses: appleboy/ssh-action@v0.1.6
-       with:
-         host: ${{ secrets.DROPLET_IP }}
-         username: ${{ secrets.DROPLET_USER }}
-         key: ${{ secrets.SSH_PRIVATE_KEY }}
-         script: |
-           echo "SSH connection successful"
-           cd /root/renter-score
-           docker-compose down -v
-           docker-compose pull --ignore-pull-failures
-           docker-compose up -d --force-recreate
-           docker image prune -af
+#
+#    # 6. Add SSH key to agent for deployment
+#     - name: Add SSH key
+#       uses: webfactory/ssh-agent@v0.5.3
+#       with:
+#         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+#
+#    # 7. Deploy to DigitalOcean Droplet
+#     - name: Deploy to DigitalOcean Droplet
+#       uses: appleboy/ssh-action@v0.1.6
+#       with:
+#         host: ${{ secrets.DROPLET_IP }}
+#         username: ${{ secrets.DROPLET_USER }}
+#         key: ${{ secrets.SSH_PRIVATE_KEY }}
+#         script: |
+#           echo "SSH connection successful"
+#           cd /root/renter-score
+#           docker-compose down -v
+#           docker-compose pull --ignore-pull-failures
+#           docker-compose up -d --force-recreate
+#           docker image prune -af

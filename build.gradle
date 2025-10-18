@@ -1,6 +1,6 @@
 plugins {
 	id 'java'
-	id 'org.springframework.boot' version '3.5.5'
+	id 'org.springframework.boot' version '3.5.6'
 	id 'io.spring.dependency-management' version '1.1.7'
 	id "org.sonarqube" version "6.0.1.5171"
 	id 'jacoco'
@@ -65,7 +65,7 @@ dependencies {
     runtimeOnly 'com.mysql:mysql-connector-j'
     annotationProcessor 'org.projectlombok:lombok'
 
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.0'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.10'
 	implementation 'com.stripe:stripe-java:29.5.0'
 	implementation 'org.springframework.kafka:spring-kafka'
     implementation 'com.google.code.gson:gson:2.10.1'
@@ -102,14 +102,19 @@ tasks.named('jacocoTestReport', JacocoReport) {
         csv.required = false
     }
 
-    classDirectories.setFrom(fileTree(dir: "$buildDir/classes/java/main", excludes: ['**/config/**', '**/dto/**']))
+    def mainClassesDir = layout.buildDirectory.dir('classes/java/main')
+    classDirectories.setFrom(
+            mainClassesDir.map { d ->
+                d.asFileTree.matching {
+                    exclude '**/config/**', '**/dto/**'
+                }
+            }
+    )
     sourceDirectories.setFrom(files('src/main/java'))
-    executionData.setFrom(fileTree(dir: buildDir, includes: ['jacoco/test.exec', 'jacoco/test*.exec', 'jacoco/*.exec']))
 }
 
 tasks.named("jacocoTestCoverageVerification", JacocoCoverageVerification) {
     dependsOn tasks.named("test")
-    dependsOn tasks.named("compileJava") // FIX: Explicit dependency to avoid Gradle validation error
 
     violationRules {
         rule {
@@ -119,17 +124,26 @@ tasks.named("jacocoTestCoverageVerification", JacocoCoverageVerification) {
         }
     }
 
-    classDirectories.setFrom(fileTree(dir: "$buildDir/classes/java/main", excludes: ['**/config/**', '**/dto/**']))
+    def mainClassesDir = layout.buildDirectory.dir('classes/java/main')
+    classDirectories.setFrom(
+            mainClassesDir.map { d ->
+                d.asFileTree.matching {
+                    exclude '**/config/**', '**/dto/**'
+                }
+            }
+    )
     sourceDirectories.setFrom(files('src/main/java'))
-    executionData.setFrom(fileTree(dir: buildDir, includes: ['jacoco/test.exec', 'jacoco/test*.exec', 'jacoco/*.exec']))
 }
 
-check.dependsOn tasks.named("jacocoTestCoverageVerification")
+check.dependsOn 'jacocoTestCoverageVerification'
 
 sonar {
     properties {
-        property "sonar.projectKey", "RetailPulse_paymentMicroservice"
+        property "sonar.projectKey", "RetailPulse_PaymentService"
         property "sonar.organization", "retailpulse"
         property "sonar.host.url", "https://sonarcloud.io"
+        property "sonar.junit.reportPaths", "build/test-results/test"
+        property "sonar.java.coveragePlugin", "jacoco"
+        property "sonar.coverage.jacoco.xmlReportPaths", "build/reports/jacoco/test/jacocoTestReport.xml"
     }
 }
