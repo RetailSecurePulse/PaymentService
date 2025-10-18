@@ -66,7 +66,7 @@ jobs:
         run: npm install -g snyk@latest
 
       - name: Authenticate Snyk CLI
-        run: snyk auth "${SNYK_TOKEN}"
+        run: snyk auth ${{ secrets.SNYK_TOKEN }}
 
       - name: Snyk Open Source Scan
         run: snyk test --all-sub-projects --org="${SNYK_ORG}" --severity-threshold=medium
