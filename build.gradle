@@ -139,7 +139,7 @@ check.dependsOn 'jacocoTestCoverageVerification'
 
 sonar {
     properties {
-        property "sonar.projectKey", "RetailPulse_paymentMicroservice"
+        property "sonar.projectKey", "RetailPulse_PaymentService"
         property "sonar.organization", "retailpulse"
         property "sonar.host.url", "https://sonarcloud.io"
         property "sonar.junit.reportPaths", "$build/test-results/test"
