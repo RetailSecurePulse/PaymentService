@@ -13,6 +13,8 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 
+import static com.retailpulse.payment.model.Constants.BEARER_PREFIX;
+
 @Slf4j
 public class FeignConfig {
 
@@ -38,7 +40,7 @@ public class FeignConfig {
 
             String token = extractBearerToken();
             if (token != null && !token.isEmpty()) {
-                template.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+                template.header(HttpHeaders.AUTHORIZATION, BEARER_PREFIX + token);
                 log.debug("Feign request [{} {}] -> Authorization header set with Bearer token (prefix={})",
                         template.method(),
                         template.url(),
@@ -66,8 +68,8 @@ public class FeignConfig {
         if (attrs instanceof org.springframework.web.context.request.ServletRequestAttributes) {
             String authz = ((org.springframework.web.context.request.ServletRequestAttributes) attrs)
                     .getRequest().getHeader(HttpHeaders.AUTHORIZATION);
-            if (authz != null && authz.startsWith("Bearer ")) {
-                return authz.substring("Bearer ".length());
+            if (authz != null && authz.startsWith(BEARER_PREFIX)) {
+                return authz.substring(BEARER_PREFIX.length());
             }
         }
 
