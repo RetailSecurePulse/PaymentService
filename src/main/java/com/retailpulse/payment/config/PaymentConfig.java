@@ -36,19 +36,17 @@ public class PaymentConfig {
                     )
             );
 
-            http
-                    .csrf(AbstractHttpConfigurer::disable)
+            http.csrf(AbstractHttpConfigurer::disable)
                     .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                     .authorizeHttpRequests(
                             c -> c.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                                    .requestMatchers("/api/**").authenticated() //.hasRole("SUPER").anyRequest().authenticated()
+                                    .requestMatchers(HttpMethod.POST, "/api/payments/webhook").permitAll()
+                                    .requestMatchers("/api/payments/**").authenticated()
                     );
         } else {
-            http
-                    .csrf(AbstractHttpConfigurer::disable)
-                    .authorizeHttpRequests(
-                            c -> c.anyRequest().permitAll()
-                    );
+            http.csrf(AbstractHttpConfigurer::disable)
+                    .authorizeHttpRequests( request ->
+                            request.anyRequest().permitAll());
         }
 
         http.cors(c -> c.configurationSource(corsConfigurationSource()));
