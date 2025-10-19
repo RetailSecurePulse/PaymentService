@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "auth.origin=http://frontend.test",
         "auth.jwt.key.set.uri=http://localhost/jwks"
 })
-public class PaymentConfigAuthTest {
+ class PaymentConfigAuthTest {
 
     @RestController
     static class DummyController {
