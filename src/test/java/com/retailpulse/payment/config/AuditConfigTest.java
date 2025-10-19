@@ -13,11 +13,12 @@ import static org.assertj.core.api.Assertions.assertThat;
         AuditConfig cfg = new AuditConfig();
 
         AuditAware instance = cfg.auditRef();
+        AuditAware another = cfg.auditRef();
 
-        assertThat(instance).isNotNull();
-        assertThat(instance).isInstanceOf(AuditAware.class);
-        // optional: each call returns a new instance
-        assertThat(cfg.auditRef()).isNotSameAs(instance);
+        assertThat(instance)
+                .isNotNull()
+                .isInstanceOf(AuditAware.class)
+                .isNotSameAs(another);
     }
 
     @Test
