@@ -106,7 +106,7 @@ tasks.named('jacocoTestReport', JacocoReport) {
     classDirectories.setFrom(
             mainClassesDir.map { d ->
                 d.asFileTree.matching {
-                    exclude '**/config/**', '**/dto/**'
+                    exclude  '**/dto/**'
                 }
             }
     )
@@ -128,7 +128,7 @@ tasks.named("jacocoTestCoverageVerification", JacocoCoverageVerification) {
     classDirectories.setFrom(
             mainClassesDir.map { d ->
                 d.asFileTree.matching {
-                    exclude '**/config/**', '**/dto/**'
+                    exclude  '**/dto/**'
                 }
             }
     )
