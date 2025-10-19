@@ -10,7 +10,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
-public class AuditAwareTest {
+ class AuditAwareTest {
 
     private final AuditAware auditAware = new AuditAware();
 
