@@ -15,10 +15,10 @@ public class AuditAware implements AuditorAware<Long> {
 	@Override
 	public Optional<Long> getCurrentAuditor() {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-		if (authentication == null || !authentication.isAuthenticated() || authentication.getPrincipal().equals("anonymousUser")) {
-			return Optional.of(0L);
-		}
-		return Optional.of(0L);
+        if (authentication != null && authentication.isAuthenticated()) {
+            authentication.getPrincipal();
+        }
+        return Optional.of(0L);
 	}
 
 }
