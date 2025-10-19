@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(PaymentController.class)
 @WithMockUser
-public class PaymentControllerTest {
+ class PaymentControllerTest {
 
     @Autowired private MockMvc mvc;
     @MockitoBean
@@ -53,7 +53,7 @@ public class PaymentControllerTest {
 
     @Test
     void handleStripeWebhook_invalidSignature_returns400() throws Exception {
-        when(paymentService.handleStripeEvent(eq("{payload}"), eq("sig123")))
+        when(paymentService.handleStripeEvent("{payload}", "sig123"))
                 .thenReturn("Invalid signature");
 
         mvc.perform(
@@ -69,7 +69,7 @@ public class PaymentControllerTest {
 
     @Test
     void handleStripeWebhook_valid_returns200() throws Exception {
-        when(paymentService.handleStripeEvent(eq("{payload}"), eq("sig-ok")))
+        when(paymentService.handleStripeEvent("{payload}","sig-ok"))
                 .thenReturn("OK");
 
         mvc.perform(
