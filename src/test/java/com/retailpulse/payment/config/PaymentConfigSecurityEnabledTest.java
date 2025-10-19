@@ -26,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         // any non-null value so the bean builds; we use .with(jwt()) in tests
         "auth.jwt.key.set.uri=http://localhost/fake-jwks"
 })
-public class PaymentConfigSecurityEnabledTest {
+ class PaymentConfigSecurityEnabledTest {
 
     @Autowired private MockMvc mvc;
 

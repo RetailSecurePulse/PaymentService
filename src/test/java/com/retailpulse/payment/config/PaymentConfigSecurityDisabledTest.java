@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "auth.enabled=false",
         "auth.origin=http://localhost"
 })
-public class PaymentConfigSecurityDisabledTest {
+ class PaymentConfigSecurityDisabledTest {
 
     @Autowired private MockMvc mvc;
 
