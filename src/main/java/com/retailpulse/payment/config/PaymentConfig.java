@@ -28,55 +28,56 @@ public class PaymentConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        if (authEnabled) {
-            http.oauth2ResourceServer(
-                    c -> c.jwt(
-                            j -> j.jwkSetUri(keySetUri).jwtAuthenticationConverter(jwtAuthenticationConverter())
-                    )
-            );
+      if (authEnabled) {
+        http.oauth2ResourceServer(c -> c
+          .jwt(
+            j -> j.jwkSetUri(keySetUri).jwtAuthenticationConverter(jwtAuthenticationConverter())
+          )
+        );
 
-            http
-                    .csrf(AbstractHttpConfigurer::disable)
-                    .authorizeHttpRequests(
-                            c -> c.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                                    .requestMatchers("/api/**").authenticated() //.hasRole("SUPER").anyRequest().authenticated()
-                    );
-        } else {
-            http
-                    .csrf(AbstractHttpConfigurer::disable)
-                    .authorizeHttpRequests(
-                            c -> c.anyRequest().permitAll()
-                    );
-        }
+        http
+          .csrf(AbstractHttpConfigurer::disable)
+          .authorizeHttpRequests(c -> c
+            .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/info", "/actuator/prometheus").permitAll()
+            .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+            .requestMatchers("/api/**").authenticated() //.hasRole("SUPER").anyRequest().authenticated()
+          );
+      } else {
+        http
+          .csrf(AbstractHttpConfigurer::disable)
+          .authorizeHttpRequests(c -> c
+            .anyRequest().permitAll()
+          );
+      }
 
-        http.cors(c -> c.configurationSource(corsConfigurationSource()));
+      http.cors(c -> c.configurationSource(corsConfigurationSource()));
 
-        return http.build();
+      return http.build();
     }
 
     private CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(originURL));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
-        configuration.setExposedHeaders(List.of("Authorization"));
-        configuration.setAllowCredentials(true);
+      CorsConfiguration configuration = new CorsConfiguration();
+      configuration.setAllowedOrigins(List.of(originURL));
+      configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
+      configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+      configuration.setExposedHeaders(List.of("Authorization"));
+      configuration.setAllowCredentials(true);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
+      UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+      source.registerCorsConfiguration("/**", configuration);
+      return source;
     }
 
     private JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtAuthenticationConverter jwtAuthenticationConverter = new JwtAuthenticationConverter();
-        jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(jwtGrantedAuthoritiesConverter());
-        return jwtAuthenticationConverter;
+      JwtAuthenticationConverter jwtAuthenticationConverter = new JwtAuthenticationConverter();
+      jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(jwtGrantedAuthoritiesConverter());
+      return jwtAuthenticationConverter;
     }
 
     private JwtGrantedAuthoritiesConverter jwtGrantedAuthoritiesConverter() {
-        JwtGrantedAuthoritiesConverter jwtGrantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
-        jwtGrantedAuthoritiesConverter.setAuthoritiesClaimName("roles");
-        jwtGrantedAuthoritiesConverter.setAuthorityPrefix("ROLE_");
-        return jwtGrantedAuthoritiesConverter;
+      JwtGrantedAuthoritiesConverter jwtGrantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
+      jwtGrantedAuthoritiesConverter.setAuthoritiesClaimName("roles");
+      jwtGrantedAuthoritiesConverter.setAuthorityPrefix("ROLE_");
+      return jwtGrantedAuthoritiesConverter;
     }
 }

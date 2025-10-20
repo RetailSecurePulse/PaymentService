@@ -23,8 +23,8 @@ spec:
           ports:
             - containerPort: 8080
           env:
-            # Configure the UI to connect to your Kafka cluster
-            # Use the internal service name created by our Kafka setup
+            - name: SERVER_PORT
+              value: '8080'
             - name: KAFKA_CLUSTERS_0_NAME
               value: "retailpulse-local"
             - name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS
