@@ -36,12 +36,12 @@ public class PaymentConfig {
                     )
             );
 
-            http.csrf(AbstractHttpConfigurer::disable)
+            http.csrf( csrf -> csrf.ignoringRequestMatchers("/api/payments/webhook"))
                     .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                     .authorizeHttpRequests(
                             c -> c.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                                     .requestMatchers(HttpMethod.POST, "/api/payments/webhook").permitAll()
-                                    .requestMatchers("/api/payments/**").authenticated()
+                                    .anyRequest().authenticated()
                     );
         } else {
             http.csrf(AbstractHttpConfigurer::disable)
