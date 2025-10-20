@@ -37,13 +37,13 @@ public class PaymentConfig {
         );
 
         http
-          .csrf(AbstractHttpConfigurer::disable)
+          .csrf(csrf -> csrf.ignoringRequestMatchers("/api/payments/webhook"))
           .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
           .authorizeHttpRequests(c -> c
             .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/info", "/actuator/prometheus").permitAll()
             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/payments/webhook").permitAll()
-            .requestMatchers("/api/**", "/api/payments/**").authenticated() //.hasRole("SUPER").anyRequest().authenticated()
+            .anyRequest().authenticated() //.hasRole("SUPER").anyRequest().authenticated()
           );
       } else {
         http
