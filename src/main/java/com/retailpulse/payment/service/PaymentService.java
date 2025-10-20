@@ -8,13 +8,11 @@ import com.retailpulse.payment.payloads.PaymentData;
 import com.retailpulse.payment.payloads.PaymentResponse;
 import com.retailpulse.payment.repos.PaymentRepo;
 import com.stripe.Stripe;
-import com.stripe.exception.EventDataObjectDeserializationException;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
 import com.stripe.model.EventDataObjectDeserializer;
 import com.stripe.model.PaymentIntent;
-import com.stripe.model.StripeObject;
 import com.stripe.net.ApiResource;
 import com.stripe.net.Webhook;
 import com.stripe.param.PaymentIntentCreateParams;
@@ -25,6 +23,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 import static com.retailpulse.payment.model.Constants.*;
 
@@ -46,8 +47,9 @@ public class PaymentService {
     @Transactional
     public PaymentResponse createPaymentIntent(PaymentData data) throws StripeException {
         Stripe.apiKey = stripeSecretKey;
+        long amountInCents = toCents(data.getTotalPrice());
         PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
-                .setAmount((long) (data.getTotalPrice() * 100)) // Amount in cents
+                .setAmount(amountInCents) // Amount in cents
                 .setCurrency(data.getCurrency())
                 .setDescription(data.getDescription())
                 .setReceiptEmail(data.getCustomerEmail())
@@ -60,7 +62,7 @@ public class PaymentService {
         Payment payment = new Payment();
         payment.setTransactionId(data.getTransactionId());
         payment.setPaymentIntentId(paymentIntent.getId());
-        payment.setTotalPrice((long) (data.getTotalPrice() * 100));
+        payment.setTotalPrice(amountInCents);
         payment.setCurrency(data.getCurrency());
         payment.setPaymentStatus(PaymentStatus.PROCESSING);
         payment.setCustomerEmail(data.getCustomerEmail());
@@ -73,11 +75,18 @@ public class PaymentService {
                 paymentIntent.getId(),
                 payment.getId(),
                 payment.getTransactionId(),
-                (payment.getTotalPrice() / 100.0),
+                amountInCents / 100.0,
                 payment.getCurrency(),
                 payment.getPaymentStatus(),
                 payment.getCreatedDate()
         );
+    }
+
+    private long toCents(Double amount) {
+        return BigDecimal.valueOf(amount)
+                .multiply(BigDecimal.valueOf(100))
+                .setScale(0, RoundingMode.HALF_UP)
+                .longValueExact();
     }
 
     @Transactional
@@ -107,6 +116,7 @@ public class PaymentService {
 
     @Transactional
     public void cancelPayment(String intentId) throws StripeException {
+        Stripe.apiKey = stripeSecretKey;
         PaymentIntent intent = PaymentIntent.retrieve(intentId);
         intent.cancel();
         updatePaymentStatus(intentId, PaymentStatus.CANCELED);
@@ -120,10 +130,10 @@ public class PaymentService {
 
     private void updatePaymentStatus(String intentId, PaymentStatus status) {
         paymentRepo.findByPaymentIntentId(intentId).ifPresent( payment -> {
-                    payment.setPaymentStatus(status);
-                    paymentRepo.save(payment);
-                    appEvents.publishEvent(new PaymentCommittedEvent(payment.getId(), payment.getPaymentIntentId(), payment.getPaymentStatus()));
-                });
+            payment.setPaymentStatus(status);
+            paymentRepo.save(payment);
+            appEvents.publishEvent(new PaymentCommittedEvent(payment.getId(), payment.getPaymentIntentId(), payment.getPaymentStatus()));
+        });
     }
 
     /**
@@ -146,36 +156,36 @@ public class PaymentService {
      */
     private PaymentIntent extractPaymentIntent(Event event) {
         EventDataObjectDeserializer deserializer = event.getDataObjectDeserializer();
-        PaymentIntent intent = null;
 
-        if (deserializer.getObject().isPresent()) {
-            Object obj = deserializer.getObject().get();
+        var currentObject = deserializer.getObject();
+        if (currentObject.isPresent()) {
+            Object obj = currentObject.get();
             if (obj instanceof PaymentIntent pi) {
-                intent = pi;
-            } else {
-                logger.warn("Event {}: deserializer returned object of type {} (expected PaymentIntent)",
-                        event.getId(), obj.getClass().getName());
+                return pi;
             }
+            logger.warn("Event {}: data object is of type {} (expected PaymentIntent)",
+                    event.getId(), obj.getClass().getName());
         }
 
-        if (intent == null) {
-            try {
-                Object raw = event.getData().getObject();
-                String json = (raw instanceof com.stripe.model.StripeObject)
-                        ? ((com.stripe.model.StripeObject) raw).toJson()
-                        : raw.toString();
-
-                intent = ApiResource.GSON.fromJson(json, PaymentIntent.class);
-                logger.info("Deserialized PaymentIntent from raw JSON for event {} -> id={}", event.getId(), intent.getId());
-            } catch (JsonSyntaxException je) {
-                logger.error("GSON failed to deserialize PaymentIntent for event {}. Raw payload preview={}. Error={}",
-                        event.getId(), safePreview(event.getData().getObject().toString()), je.getMessage(), je);
-            } catch (Exception ex) {
-                logger.error("Unexpected error deserializing PaymentIntent for event {}: {}", event.getId(), ex.getMessage(), ex);
+        String rawJson = deserializer.getRawJson();
+        if (rawJson == null || rawJson.isBlank()) {
+            logger.error("Event {}: deserializer returned no raw JSON to attempt fallback deserialization", event.getId());
+            return null;
+        }
+        try {
+            PaymentIntent pi = ApiResource.GSON.fromJson(rawJson, PaymentIntent.class);
+            if (pi != null) {
+                logger.info("Deserialized PaymentIntent from raw JSON for event {} -> id={}", event.getId(), pi.getId());
+                return pi;
             }
+        } catch (JsonSyntaxException je) {
+            logger.error("GSON failed to deserialize PaymentIntent for event {}. Raw payload preview={}. Error={}",
+                    event.getId(), safePreview(rawJson), je.getMessage(), je);
+        } catch (RuntimeException ex) {
+            logger.error("Unexpected error deserializing PaymentIntent for event {}: {}", event.getId(), ex.getMessage(), ex);
         }
 
-        return intent;
+        return null;
     }
 
     /**

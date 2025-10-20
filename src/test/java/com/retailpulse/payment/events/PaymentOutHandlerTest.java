@@ -13,7 +13,7 @@ import java.util.Optional;
 
 import static org.mockito.Mockito.*;
 
-public class PaymentOutHandlerTest {
+ class PaymentOutHandlerTest {
     @Mock
     PaymentEventPublisher publisher;
 

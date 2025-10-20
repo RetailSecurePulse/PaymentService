@@ -6,6 +6,7 @@ import com.retailpulse.payment.model.PaymentStatus;
 import com.retailpulse.payment.payloads.PaymentData;
 import com.retailpulse.payment.payloads.PaymentResponse;
 import com.retailpulse.payment.repos.PaymentRepo;
+import com.stripe.Stripe;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.model.Event;
 import com.stripe.model.EventDataObjectDeserializer;
@@ -15,168 +16,220 @@ import com.stripe.param.PaymentIntentCreateParams;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.*;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-public class PaymentServiceTest {
+class PaymentServiceTest {
 
-    @Mock
-    private PaymentRepo paymentRepo;
+    @Mock private PaymentRepo paymentRepo;
     @Mock private ApplicationEventPublisher appEvents;
 
-    @InjectMocks
-    private PaymentService service;
+    @InjectMocks private PaymentService service;
 
     @BeforeEach
-    void injectSecrets() {
-        // match your @Value fields
-        ReflectionTestUtils.setField(service, "stripeSecretKey", "sk_test_fake");
-        ReflectionTestUtils.setField(service, "webhookEndpointKey", "whsec_fake");
+    void init() {
+        // Set @Value fields
+        ReflectionTestUtils.setField(service, "stripeSecretKey", "sk_test_123");
+        ReflectionTestUtils.setField(service, "webhookEndpointKey", "whsec_123");
     }
 
+    // ---------- createPaymentIntent ----------
+
     @Test
-    void createPaymentIntent_happyPath_persistsAndPublishes() throws Exception {
-        // Arrange input
+    void createPaymentIntent_happyPath_savesAndPublishes_andReturnsResponse() throws Exception {
+        // Arrange
         PaymentData data = new PaymentData();
-        data.setTransactionId(123L);
-        data.setTotalPrice(15.00); // dollars
-        data.setCurrency("SGD");
-        data.setDescription("Coffee");
+        data.setTotalPrice(12.345); // will be rounded HALF_UP to 1235 cents
+        data.setCurrency("usd");
+        data.setDescription("desc");
         data.setCustomerEmail("a@b.com");
+        data.setTransactionId(123L);
 
-        // Mock Stripe static: PaymentIntent.create(...)
-        PaymentIntent mockPI = mock(PaymentIntent.class);
-        when(mockPI.getId()).thenReturn("pi_123");
-        when(mockPI.getClientSecret()).thenReturn("cs_abc");
+        PaymentIntent pi = mock(PaymentIntent.class);
+        when(pi.getId()).thenReturn("pi_123");
+        when(pi.getClientSecret()).thenReturn("cs_test");
 
-        try (MockedStatic<PaymentIntent> mocked = Mockito.mockStatic(PaymentIntent.class)) {
-            mocked.when(() -> PaymentIntent.create(any(PaymentIntentCreateParams.class))).thenReturn(mockPI);
+        try (MockedStatic<PaymentIntent> staticPI = Mockito.mockStatic(PaymentIntent.class)) {
+            staticPI.when(() -> PaymentIntent.create(any(PaymentIntentCreateParams.class))).thenReturn(pi);
 
-            // Mock DB save to assign id + createdDate
             when(paymentRepo.save(any(Payment.class))).thenAnswer(inv -> {
                 Payment p = inv.getArgument(0);
                 p.setId(42L);
-                var createdDate = Instant.parse("2025-10-03T00:00:00Z").atZone(ZoneOffset.UTC).toLocalDateTime();
-                p.setCreatedDate(createdDate);
                 return p;
             });
 
             // Act
             PaymentResponse resp = service.createPaymentIntent(data);
 
-            // Assert response mapping
-            assertThat(resp.getClientSecret()).isEqualTo("cs_abc");
-            assertThat(resp.getPaymentIntentId()).isEqualTo("pi_123");
-            assertThat(resp.getPaymentId()).isEqualTo(42L);
-            assertThat(resp.getTransactionId()).isEqualTo(123L);
-            assertThat(resp.getTotalPrice()).isEqualTo(15.00); // dollars back from cents/100
-            assertThat(resp.getCurrency()).isEqualTo("SGD");
-            assertThat(resp.getPaymentStatus()).isEqualTo(PaymentStatus.PROCESSING);
-            assertThat(resp.getPaymentDate()).isEqualTo(Instant.parse("2025-10-03T00:00:00Z").atZone(ZoneOffset.UTC).toLocalDateTime());
+            // Assert
+            staticPI.verify(() -> PaymentIntent.create(any(PaymentIntentCreateParams.class)), times(1));
+            verify(paymentRepo).save(argThat(p ->
+                    p.getPaymentIntentId().equals("pi_123")
+                            && p.getTotalPrice() == 1235L
+                            && p.getPaymentStatus() == PaymentStatus.PROCESSING
+                            && p.getTransactionId().equals(123L)
+                            && p.getCurrency().equals("usd")
+                            && p.getCustomerEmail().equals("a@b.com")));
 
-            // Verify persistence + event
-            verify(paymentRepo).save(any(Payment.class));
             verify(appEvents).publishEvent(isA(PaymentCommittedEvent.class));
+
+            assertThat(resp).isNotNull();
+            assertThat(resp.getPaymentIntentId()).isEqualTo("pi_123");
+            assertThat(resp.getClientSecret()).isEqualTo("cs_test");
+            assertThat(resp.getPaymentId()).isEqualTo(42L);
+            assertThat(resp.getTotalPrice()).isEqualTo(12.35); // 1235 / 100.0
+            assertThat(resp.getCurrency()).isEqualTo("usd");
+            assertThat(resp.getPaymentStatus()).isEqualTo(PaymentStatus.PROCESSING);
+
+            // sanity: service set Stripe.apiKey
+            assertThat(Stripe.apiKey).isEqualTo("sk_test_123");
         }
     }
 
+    // ---------- cancelPayment ----------
+
     @Test
-    void handleStripeEvent_invalidSignature_returnsInvalid() {
-        String payload = "{json}";
-        String sig = "hdr";
+    void cancelPayment_callsStripeAndUpdatesStatusAndPublishesEvent() throws Exception {
+        PaymentIntent pi = mock(PaymentIntent.class);
 
-        try (MockedStatic<Webhook> mocked = Mockito.mockStatic(Webhook.class)) {
-            mocked.when(() -> Webhook.constructEvent(payload, sig, "whsec_fake"))
-                    .thenThrow(new SignatureVerificationException("bad sig", null));
+        try (MockedStatic<PaymentIntent> staticPI = Mockito.mockStatic(PaymentIntent.class)) {
+            staticPI.when(() -> PaymentIntent.retrieve("pi_cancel")).thenReturn(pi);
 
-            String result = service.handleStripeEvent(payload, sig);
+            Payment existing = new Payment();
+            existing.setId(100L);
+            existing.setPaymentIntentId("pi_cancel");
+            existing.setPaymentStatus(PaymentStatus.PROCESSING);
 
+            when(paymentRepo.findByPaymentIntentId("pi_cancel")).thenReturn(Optional.of(existing));
+            when(paymentRepo.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            service.cancelPayment("pi_cancel");
+
+            staticPI.verify(() -> PaymentIntent.retrieve("pi_cancel"), times(1));
+            verify(pi).cancel();
+
+            verify(paymentRepo).findByPaymentIntentId("pi_cancel");
+            verify(paymentRepo).save(argThat(p ->
+                    p.getId().equals(100L)
+                            && p.getPaymentIntentId().equals("pi_cancel")
+                            && p.getPaymentStatus() == PaymentStatus.CANCELED
+            ));
+            verify(appEvents).publishEvent(isA(PaymentCommittedEvent.class));
+
+            assertThat(Stripe.apiKey).isEqualTo("sk_test_123");
+        }
+    }
+
+    // ---------- getStatus ----------
+
+    @Test
+    void getStatus_returnsFoundStatus() {
+        Payment p = new Payment();
+        p.setPaymentStatus(PaymentStatus.SUCCEEDED);
+        when(paymentRepo.findByPaymentIntentId("pi_ok")).thenReturn(Optional.of(p));
+
+        assertThat(service.getStatus("pi_ok")).isEqualTo("SUCCEEDED");
+    }
+
+    @Test
+    void getStatus_returnsNotFound() {
+        when(paymentRepo.findByPaymentIntentId("pi_missing")).thenReturn(Optional.empty());
+        assertThat(service.getStatus("pi_missing")).isEqualTo("NOT_FOUND");
+    }
+
+    // ---------- handleStripeEvent: invalid signature ----------
+
+    @Test
+    void handleStripeEvent_invalidSignature_returnsConstant() {
+        try (MockedStatic<Webhook> staticWebhook = Mockito.mockStatic(Webhook.class)) {
+            staticWebhook.when(() -> Webhook.constructEvent(anyString(), anyString(), anyString()))
+                    .thenThrow(new SignatureVerificationException("bad", "sig"));
+
+            String result = service.handleStripeEvent("{payload}", "sig");
             assertThat(result).isEqualTo("Invalid signature");
         }
     }
 
+    // ---------- handleStripeEvent: default/unhandled type returns received ----------
+
     @Test
-    void handleStripeEvent_succeeded_updatesStatusAndPublishes() {
+    void handleStripeEvent_unhandledType_returnsReceived() {
+        Event event = mock(Event.class);
+        when(event.getType()).thenReturn("some_unknown_type");
 
-        Event event = mock(Event.class, RETURNS_DEEP_STUBS);
-        when(event.getType()).thenReturn("payment_intent.succeeded");
-
-        PaymentIntent pi = mock(PaymentIntent.class);
-        when(pi.getId()).thenReturn("pi_123");
-
-        EventDataObjectDeserializer deser = mock(EventDataObjectDeserializer.class);
-        when(deser.getObject()).thenReturn(Optional.of(pi));
-        when(event.getDataObjectDeserializer()).thenReturn(deser);
-
-        try (MockedStatic<Webhook> mocked = Mockito.mockStatic(Webhook.class)) {
-            mocked.when(() -> Webhook.constructEvent(anyString(), anyString(), eq("whsec_fake")))
+        try (MockedStatic<Webhook> staticWebhook = Mockito.mockStatic(Webhook.class)) {
+            staticWebhook.when(() -> Webhook.constructEvent(anyString(), anyString(), anyString()))
                     .thenReturn(event);
 
-            // Repo returns existing payment so updatePaymentStatus() can persist and publish
-            Payment existing = new Payment();
-            existing.setId(99L);
-            existing.setPaymentIntentId("pi_123");
-            existing.setPaymentStatus(PaymentStatus.PROCESSING);
-            when(paymentRepo.findByPaymentIntentId("pi_123")).thenReturn(Optional.of(existing));
-            when(paymentRepo.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
-
-            // Act
             String result = service.handleStripeEvent("{payload}", "sig");
-
-            // Assert
             assertThat(result).isEqualTo("received");
-
-            ArgumentCaptor<Payment> saved = ArgumentCaptor.forClass(Payment.class);
-            verify(paymentRepo).save(saved.capture());
-            assertThat(saved.getValue().getPaymentStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
-
-            verify(appEvents).publishEvent(isA(PaymentCommittedEvent.class));
         }
     }
 
+    // ---------- handlePaymentIntentEvent (private) via reflection ----------
+
     @Test
-    void cancelPayment_callsStripeAndUpdatesStatus() throws Exception {
+    void handlePaymentIntentEvent_withPresentPaymentIntent_updatesStatusAndPublishes() throws Exception {
         PaymentIntent pi = mock(PaymentIntent.class);
+        when(pi.getId()).thenReturn("pi_789");
 
-        try (MockedStatic<PaymentIntent> mocked = Mockito.mockStatic(PaymentIntent.class)) {
-            mocked.when(() -> PaymentIntent.retrieve("pi_123")).thenReturn(pi);
+        EventDataObjectDeserializer deserializer = mock(EventDataObjectDeserializer.class);
+        when(deserializer.getObject()).thenReturn(Optional.of(pi));
 
-            // find + save path for updatePaymentStatus
-            Payment p = new Payment();
-            p.setId(1L);
-            p.setPaymentIntentId("pi_123");
-            p.setPaymentStatus(PaymentStatus.PROCESSING);
-            when(paymentRepo.findByPaymentIntentId("pi_123")).thenReturn(Optional.of(p));
-            when(paymentRepo.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+        Event event = mock(Event.class);
+        when(event.getId()).thenReturn("evt_1");
+        when(event.getDataObjectDeserializer()).thenReturn(deserializer);
 
-            // Act
-            service.cancelPayment("pi_123");
+        Payment existing = new Payment();
+        existing.setId(7L);
+        existing.setPaymentIntentId("pi_789");
+        existing.setPaymentStatus(PaymentStatus.PROCESSING);
+        when(paymentRepo.findByPaymentIntentId("pi_789")).thenReturn(Optional.of(existing));
+        when(paymentRepo.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            // Assert Stripe cancel() called
-            verify(pi).cancel();
+        var m = PaymentService.class.getDeclaredMethod("handlePaymentIntentEvent", Event.class, PaymentStatus.class);
+        m.setAccessible(true);
+        m.invoke(service, event, PaymentStatus.SUCCEEDED);
 
-            // Assert saved as CANCELED
-            ArgumentCaptor<Payment> saved = ArgumentCaptor.forClass(Payment.class);
-            verify(paymentRepo).save(saved.capture());
-            assertThat(saved.getValue().getPaymentStatus()).isEqualTo(PaymentStatus.CANCELED);
-
-            verify(appEvents).publishEvent(isA(PaymentCommittedEvent.class));
-        }
+        verify(paymentRepo).save(argThat(p ->
+                p.getId().equals(7L)
+                        && p.getPaymentIntentId().equals("pi_789")
+                        && p.getPaymentStatus() == PaymentStatus.SUCCEEDED
+        ));
+        verify(appEvents).publishEvent(isA(PaymentCommittedEvent.class));
     }
 
     @Test
-    void getStatus_returnsNotFoundWhenMissing() {
-        when(paymentRepo.findByPaymentIntentId("nope")).thenReturn(Optional.empty());
-        assertThat(service.getStatus("nope")).isEqualTo("NOT_FOUND");
+    void handlePaymentIntentEvent_noObjectAndNoRawJson_skipsUpdate() throws Exception {
+        // deserializer returns empty object and blank raw JSON -> extractPaymentIntent => null
+        EventDataObjectDeserializer deserializer = mock(EventDataObjectDeserializer.class);
+        when(deserializer.getObject()).thenReturn(Optional.empty());
+        when(deserializer.getRawJson()).thenReturn("  ");
+
+        Event event = mock(Event.class);
+        when(event.getId()).thenReturn("evt_2");
+        when(event.getType()).thenReturn("payment_intent.succeeded");
+        when(event.getDataObjectDeserializer()).thenReturn(deserializer);
+
+        // Invoke private method
+        var m = PaymentService.class.getDeclaredMethod("handlePaymentIntentEvent", Event.class, PaymentStatus.class);
+        m.setAccessible(true);
+        m.invoke(service, event, PaymentStatus.SUCCEEDED);
+
+        // Verify nothing updated/published
+        verify(paymentRepo, never()).findByPaymentIntentId(anyString());
+        verify(appEvents, never()).publishEvent(any());
     }
+
 }
