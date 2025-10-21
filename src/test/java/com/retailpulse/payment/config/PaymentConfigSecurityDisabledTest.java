@@ -18,7 +18,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = PaymentController.class)
-@Import(PaymentConfig.class) // <-- use your real SecurityFilterChain
+@Import(PaymentConfig.class)
 @TestPropertySource(properties = {
         "auth.enabled=false",
         "auth.origin=http://localhost"

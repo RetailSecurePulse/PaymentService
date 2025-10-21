@@ -39,7 +39,6 @@ class PaymentServiceTest {
 
     @BeforeEach
     void init() {
-        // Set @Value fields
         ReflectionTestUtils.setField(service, "stripeSecretKey", "sk_test_123");
         ReflectionTestUtils.setField(service, "webhookEndpointKey", "whsec_123");
     }
@@ -212,7 +211,6 @@ class PaymentServiceTest {
 
     @Test
     void handlePaymentIntentEvent_noObjectAndNoRawJson_skipsUpdate() throws Exception {
-        // deserializer returns empty object and blank raw JSON -> extractPaymentIntent => null
         EventDataObjectDeserializer deserializer = mock(EventDataObjectDeserializer.class);
         when(deserializer.getObject()).thenReturn(Optional.empty());
         when(deserializer.getRawJson()).thenReturn("  ");
@@ -222,12 +220,10 @@ class PaymentServiceTest {
         when(event.getType()).thenReturn("payment_intent.succeeded");
         when(event.getDataObjectDeserializer()).thenReturn(deserializer);
 
-        // Invoke private method
         var m = PaymentService.class.getDeclaredMethod("handlePaymentIntentEvent", Event.class, PaymentStatus.class);
         m.setAccessible(true);
         m.invoke(service, event, PaymentStatus.SUCCEEDED);
 
-        // Verify nothing updated/published
         verify(paymentRepo, never()).findByPaymentIntentId(anyString());
         verify(appEvents, never()).publishEvent(any());
     }
