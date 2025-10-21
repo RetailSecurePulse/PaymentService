@@ -23,7 +23,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestPropertySource(properties = {
         "auth.enabled=true",
         "auth.origin=http://localhost",
-        // any non-null value so the bean builds; we use .with(jwt()) in tests
         "auth.jwt.key.set.uri=http://localhost/fake-jwks"
 })
  class PaymentConfigSecurityEnabledTest {
