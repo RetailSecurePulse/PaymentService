@@ -11,6 +11,15 @@ on:
       - develop
       - main
 
+  pull_request:
+    branches:
+      - develop
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
 jobs:
   test:
     name: Run Unit Tests
