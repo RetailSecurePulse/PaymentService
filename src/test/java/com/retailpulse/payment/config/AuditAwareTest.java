@@ -21,7 +21,7 @@ import static org.mockito.Mockito.*;
 
     @Test
     void returnsZeroWhenAuthenticationIsNull() {
-        SecurityContextHolder.clearContext(); // explicit
+        SecurityContextHolder.clearContext();
 
         Optional<Long> result = auditAware.getCurrentAuditor();
 
@@ -37,7 +37,7 @@ import static org.mockito.Mockito.*;
         Optional<Long> result = auditAware.getCurrentAuditor();
 
         assertThat(result).isPresent().contains(0L);
-        verify(auth, never()).getPrincipal(); // principal should not be touched
+        verify(auth, never()).getPrincipal();
     }
 
     @Test

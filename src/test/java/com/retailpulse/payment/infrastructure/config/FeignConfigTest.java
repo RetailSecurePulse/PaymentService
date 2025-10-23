@@ -57,7 +57,6 @@ import static org.mockito.Mockito.when;
         FeignConfig cfg = newConfigWithTracer(tracer);
         RequestInterceptor ri = cfg.oauth2BearerForwardingInterceptor();
 
-        // SecurityContext with JwtAuthenticationToken
         Jwt jwt = Jwt.withTokenValue("jwt-token-abc")
                 .header("alg", "none")
                 .claim("sub", "user1")
@@ -78,17 +77,14 @@ import static org.mockito.Mockito.when;
 
     @Test
     void interceptor_fallsBackToRequestHeader_whenNoSecurityContext() {
-        // tracer returns null span (no B3)
         Tracer tracer = mock(Tracer.class);
         when(tracer.currentSpan()).thenReturn(null);
 
         FeignConfig cfg = newConfigWithTracer(tracer);
         RequestInterceptor ri = cfg.oauth2BearerForwardingInterceptor();
 
-        // No auth in SecurityContext
         SecurityContextHolder.clearContext();
 
-        // Fallback header in current request
         MockHttpServletRequest req = new MockHttpServletRequest();
         req.addHeader(HttpHeaders.AUTHORIZATION, "Bearer fallback-xyz");
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
@@ -98,7 +94,7 @@ import static org.mockito.Mockito.when;
         tpl.uri("/api/anything");
         ri.apply(tpl);
 
-        assertThat(tpl.headers().get("X-B3-TraceId")).isNull(); // no tracer span
+        assertThat(tpl.headers().get("X-B3-TraceId")).isNull();
         assertThat(tpl.headers().get(HttpHeaders.AUTHORIZATION)).containsExactly("Bearer fallback-xyz");
     }
 
@@ -110,7 +106,6 @@ import static org.mockito.Mockito.when;
         FeignConfig cfg = newConfigWithTracer(tracer);
         RequestInterceptor ri = cfg.oauth2BearerForwardingInterceptor();
 
-        // No security context, no request attrs
         SecurityContextHolder.clearContext();
         RequestContextHolder.resetRequestAttributes();
 
