@@ -29,13 +29,13 @@ public class PaymentController {
         return ResponseEntity.ok(response);
     }
 
+    // Handle the Stripe webhook event (e.g., payment.succeeded, payment.failed, payment.canceled)
     @PostMapping("/webhook")
     public ResponseEntity<String> handleStripeWebhook(@RequestBody String payload, @RequestHeader("Stripe-Signature") String sigHeader) {
         String result = paymentService.handleStripeEvent(payload, sigHeader);
         if (INVALID_SIGNATURE.equals(result)) {
             return ResponseEntity.badRequest().body(result);
         }
-        // Handle the Stripe event (e.g., payment succeeded, payment failed)
         return ResponseEntity.ok(result);
     }
 
