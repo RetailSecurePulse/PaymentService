@@ -1,5 +1,5 @@
 # ---- Stage 1: Build with Gradle ----
-FROM gradle:8.13.0-jdk23 AS builder
+FROM gradle:8.13.0-jdk21-noble AS builder
 
 # Set working directory
 WORKDIR /app
@@ -23,11 +23,24 @@ COPY src src
 RUN ./gradlew clean bootJar --no-daemon
 
 # ---- Stage 2: Run with minimal JDK ----
-FROM eclipse-temurin:23-jdk-alpine
+FROM eclipse-temurin:21-jre-noble
+
+# Install curl + tzdata (Debian-based image)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl tzdata ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set environment variables
+ENV JAVA_HOME=/opt/java/openjdk \
+    PATH="/opt/java/openjdk/bin:${PATH}" \
+    LANG=en_US.UTF-8 \
+    LC_ALL=en_US.UTF-8
+
+WORKDIR /app
 
 # Create non-root user for security
-RUN addgroup -g 1001 -S appgroup && \
-    adduser -u 1001 -S appuser -G appgroup
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser && chown -R appuser:appgroup /app
+USER appuser
 
 # Set working directory
 WORKDIR /app
@@ -35,14 +48,8 @@ WORKDIR /app
 # Copy the built JAR from the builder stage
 COPY --from=builder /app/build/libs/*.jar app.jar
 
-# # Change ownership to non-root user
-# RUN chown appuser:appgroup app.jar
-
-# # Switch to non-root user
-# USER appuser
-
-# Expose port 8085
-EXPOSE 8085
+# Expose port 8087
+EXPOSE 8087
 
 # Run the Spring Boot application
 ENTRYPOINT ["java", "-jar", "app.jar"]
