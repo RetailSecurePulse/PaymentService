@@ -1,5 +1,5 @@
-# ---- Stage 1: Build with Gradle ----
-FROM gradle:8.13.0-jdk21-noble AS builder
+# ---- Stage 1: Build with Gradle wrapper on JDK 23 ----
+FROM eclipse-temurin:23-jdk-noble AS builder
 
 # Set working directory
 WORKDIR /app
@@ -22,8 +22,8 @@ COPY src src
 # Build the application (produces spring-boot-api-2.0.0.jar)
 RUN ./gradlew clean bootJar --no-daemon
 
-# ---- Stage 2: Run with minimal JDK ----
-FROM eclipse-temurin:21-jre-noble
+# ---- Stage 2: Run with minimal JRE 23 ----
+FROM eclipse-temurin:23-jre-noble
 
 # Install curl + tzdata (Debian-based image)
 RUN apt-get update && \
