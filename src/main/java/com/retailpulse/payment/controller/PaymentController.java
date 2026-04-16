@@ -47,7 +47,7 @@ public class PaymentController {
             paymentService.cancelPayment(intentId);
             return ResponseEntity.ok("Canceled");
         } catch (StripeException e) {
-            return ResponseEntity.badRequest().body("Cancellation Failed" + e.getMessage());
+            return ResponseEntity.badRequest().body("Cancellation Failed");
         }
     }
 
