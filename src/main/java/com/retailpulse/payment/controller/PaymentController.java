@@ -5,8 +5,6 @@ import com.retailpulse.payment.payloads.PaymentResponse;
 import com.retailpulse.payment.service.PaymentService;
 import com.stripe.exception.StripeException;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,7 +17,6 @@ import static com.retailpulse.payment.model.Constants.INVALID_SIGNATURE;
 @RequiredArgsConstructor
 public class PaymentController {
 
-    private static final Logger logger = LoggerFactory.getLogger(PaymentController.class);
 
     private final PaymentService paymentService;
 
@@ -50,7 +47,7 @@ public class PaymentController {
             paymentService.cancelPayment(intentId);
             return ResponseEntity.ok("Canceled");
         } catch (StripeException e) {
-            return ResponseEntity.badRequest().body("Cancellation Failed");
+            return ResponseEntity.badRequest().body("Cancellation Failed" + e.getMessage());
         }
     }
 
