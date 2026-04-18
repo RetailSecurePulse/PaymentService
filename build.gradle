@@ -142,8 +142,8 @@ check.dependsOn 'jacocoTestCoverageVerification'
 
 sonar {
     properties {
-        property "sonar.projectKey", "RetailPulse_PaymentService"
-        property "sonar.organization", "retailpulse"
+        property "sonar.projectKey", "RetailSecurePulse_PaymentService"
+        property "sonar.organization", "retailsecurepulse"
         property "sonar.host.url", "https://sonarcloud.io"
         property "sonar.junit.reportPaths", "build/test-results/test"
         property "sonar.java.coveragePlugin", "jacoco"
