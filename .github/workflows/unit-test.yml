@@ -3,7 +3,7 @@ name: Java CI with Gradle
 env:
   JAVA_VERSION: '23'
   DISTRIBUTION: 'temurin'
-  SNYK_ORG: retailpulse
+  SNYK_ORG: retailsecurepulse
 
 on:
   push:
@@ -26,29 +26,29 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout code #checkout v6.0.2 SHA
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
-      - name: Set up JDK 23
-        uses: actions/setup-java@v4
+      - name: Set up JDK 23 #setup-java v5.2.0 SHA
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.DISTRIBUTION }}
           cache: gradle
-
-      - uses: gradle/actions/setup-gradle@v4
+          # actions/setup-gradle v6.1.0 SHA
+      - uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e
 
       - name: Run Tests with Gradle
         run: ./gradlew clean test jacocoTestReport jacocoTestCoverageVerification
 
-      - name: Upload Jacoco HTML Report
-        uses: actions/upload-artifact@v4
+      - name: Upload Jacoco HTML Report #upload-artifact v7.0.1 SHA
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: test-results-html
           path: build/reports/jacoco/test/html
 
-      - name: Upload Jacoco XML Report
-        uses: actions/upload-artifact@v4
+      - name: Upload Jacoco XML Report #upload-artifact v7.0.1 SHA
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: jacoco-xml
           path: build/reports/jacoco/test/jacocoTestReport.xml
@@ -61,9 +61,9 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.DISTRIBUTION }}
@@ -94,19 +94,19 @@ jobs:
     needs: [test]
     if: ${{ github.event.pull_request.head.repo.fork == false || github.event_name != 'pull_request' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
 
       - name: Set up JDK 23
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.DISTRIBUTION }}
           cache: gradle
 
-      - name: Cache SonarQube packages
-        uses: actions/cache@v4
+      - name: Cache SonarQube packages #actions/cache v5.0.5 SHA
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae
         with:
           path: ~/.sonar/cache
           key: ${{ runner.os }}-sonar
