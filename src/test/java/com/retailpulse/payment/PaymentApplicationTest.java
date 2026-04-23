@@ -1,6 +1,7 @@
 package com.retailpulse.payment;
 
 import com.retailpulse.payment.events.PaymentEvent;
+import com.retailpulse.payment.infrastructure.SalesFeignClient;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -20,6 +21,9 @@ class PaymentApplicationTest {
 
 	@MockitoBean
 	KafkaTemplate<String, PaymentEvent> kafkaTemplate;
+
+	@MockitoBean
+	SalesFeignClient salesFeignClient;
 
 	@Test
 	void contextLoads() {
