@@ -14,7 +14,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 				"auth.enabled=false",
 				"auth.origin=http://localhost",
 				"stripe.apiKey=dummy",
-				"stripe.webhookSecret=dummy"
+				"stripe.webhookSecret=dummy",
+				"spring.kafka.bootstrap-servers=localhost:9092"
 		}
 )
 class PaymentApplicationTest {
