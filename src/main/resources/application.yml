@@ -13,7 +13,7 @@ stripe:
 #topic name for payment events
 app:
   kafka:
-    topic:
+    topics:
       payment-events: payment-events
       payment-events-dlt: payment-events-dlt
 
@@ -62,7 +62,7 @@ spring:
       default-topic: payment-events
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
       properties:
         acks: all
         retries: 10

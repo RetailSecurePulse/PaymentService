@@ -65,7 +65,7 @@ data:
           default-topic: payment-events
         producer:
           key-serializer: org.apache.kafka.common.serialization.StringSerializer
-          value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+          value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
           properties:
             acks: all
             retries: 10
