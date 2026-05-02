@@ -9,6 +9,7 @@ import io.micrometer.tracing.TraceContext;
 import io.micrometer.tracing.Tracer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpHeaders;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -32,7 +33,7 @@ import static org.mockito.Mockito.when;
     }
 
     private static FeignConfig newConfigWithTracer(Tracer tracer) {
-        return new FeignConfig(tracer);
+        return new FeignConfig(tracerProvider(tracer));
     }
 
     @Test
@@ -116,5 +117,12 @@ import static org.mockito.Mockito.when;
         ri.apply(tpl);
 
         assertThat(tpl.headers().get(HttpHeaders.AUTHORIZATION)).isNull();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ObjectProvider<Tracer> tracerProvider(Tracer tracer) {
+        ObjectProvider<Tracer> tracerProvider = mock(ObjectProvider.class);
+        when(tracerProvider.getIfAvailable()).thenReturn(tracer);
+        return tracerProvider;
     }
 }
